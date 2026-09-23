@@ -1,0 +1,105 @@
+[
+  {
+    "id": "ENQ-MUDZ7HNB-8O8E",
+    "name": "Sameer Joshi",
+    "email": "sameer.joshi@example.com",
+    "phone": "+91 98201 12345",
+    "service": "Cinematic Music Video",
+    "shootDate": "2026-11-20",
+    "message": "Looking for a full music video production in Mumbai. 2 shoot days with drone coverage and color grading.",
+    "createdAt": "2026-09-23T10:44:36.504Z",
+    "status": "new",
+    "clientIp": "127.0.0.1",
+    "userAgent": "curl/7.88.1",
+    "emailDelivery": {
+      "attempted": true,
+      "sent": true,
+      "provider": "smtp",
+      "messageId": "<ddf66800-5784-4dec-b493-c6bef373e574@gmail.com>",
+      "sentAt": "2026-09-23T10:44:38.659Z"
+    }
+  },
+  {
+    "id": "ENQ-BOOK-MUDUXLWB",
+    "name": "Test Client",
+    "email": "test@client.com",
+    "phone": "9876543210",
+    "service": "Wedding Photography [Advance Reservation: ₹100]",
+    "message": "Advance booking reservation confirmed. Order ID: AV_CF_MUDUXLVM_KFL4. (Cashfree Gateway: Setup coming soon).",
+    "createdAt": "2026-09-23T08:44:56.987Z",
+    "status": "new",
+    "emailDelivery": {
+      "attempted": false,
+      "sent": false
+    }
+  },
+  {
+    "id": "ENQ-MUDUXIUV-RLNF",
+    "name": "Aman Client",
+    "email": "client@example.com",
+    "phone": "9876543210",
+    "service": "Wedding Photography",
+    "message": "Test preview booking enquiry",
+    "createdAt": "2026-09-23T08:44:53.047Z",
+    "status": "new",
+    "clientIp": "127.0.0.1",
+    "userAgent": "curl/7.88.1",
+    "emailDelivery": {
+      "attempted": false,
+      "sent": false,
+      "error": "Email delivery setup coming soon"
+    }
+  },
+  {
+    "id": "ENQ-MUCGS347-7X9R",
+    "name": "Aarav Mehta",
+    "email": "aarav.mehta@gmail.com",
+    "phone": "+91 98200 12345",
+    "service": "Wedding Cinematography",
+    "shootDate": "2026-12-18",
+    "message": "We are planning our 3-day wedding celebrations in Udaipur and love your cinematic color grading.",
+    "createdAt": "2026-09-22T09:20:58.567Z",
+    "status": "new",
+    "clientIp": "127.0.0.1",
+    "userAgent": "curl/7.88.1",
+    "emailDelivery": {
+      "attempted": true,
+      "sent": false,
+      "error": "Email service credentials not configured. Please set SMTP_USER and SMTP_PASS (or RESEND_API_KEY) in the server environment variables."
+    }
+  },
+  {
+    "id": "ENQ-DEMO-01",
+    "name": "Rajesh Khanna",
+    "email": "rajesh@luxeliving.in",
+    "phone": "+91 98201 45678",
+    "service": "Real Estate Visuals & FPV",
+    "shootDate": "2026-10-15",
+    "message": "We have a luxury 4BHK penthouse in Worli and need high-end architectural photo coverage and FPV drone flythrough for our marketing campaign.",
+    "createdAt": "2026-09-22T06:20:29.965Z",
+    "status": "new",
+    "emailDelivery": {
+      "attempted": true,
+      "sent": true,
+      "provider": "smtp",
+      "sentAt": "2026-09-22T06:20:29.965Z"
+    }
+  },
+  {
+    "id": "ENQ-DEMO-02",
+    "name": "Ananya Roy",
+    "email": "ananya@aurafashion.co",
+    "phone": "+91 91672 88390",
+    "service": "Corporate Film & Commercial",
+    "shootDate": "2026-11-04",
+    "message": "Looking for a cinematic brand video showcasing our upcoming sustainable clothing collection in Mumbai. 2-day shoot schedule.",
+    "createdAt": "2026-09-21T09:20:29.965Z",
+    "status": "contacted",
+    "emailDelivery": {
+      "attempted": true,
+      "sent": true,
+      "provider": "smtp",
+      "sentAt": "2026-09-21T09:20:29.965Z"
+    }
+  }
+]

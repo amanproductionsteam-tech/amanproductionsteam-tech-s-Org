@@ -1,0 +1,8 @@
+{
+  "name": "Remix Remix Remix Aman Visual",
+  "description": "Premium cinematic portfolio for Aman Visual, Mumbai-based cinematographer and photographer.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
