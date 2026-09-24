@@ -14,41 +14,12 @@ import {
   ChevronRight,
   CreditCard
 } from 'lucide-react';
-import CashfreeBookingModal, { type BookingItemDetails } from './CashfreeBookingModal';
+import DirectBookingModal, { type BookingItemDetails } from './DirectBookingModal';
 import { CORE_PRICING_PACKAGES, CALCULATOR_CONFIG, type PricingPackage } from '../data/pricingData';
-import { getCashfreePaymentLink } from '../config/payment';
 
 export default function PricingSection() {
-  // Cashfree Booking Modal State
+  // Booking Modal State
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
-  const [cashfreeDirectUrl, setCashfreeDirectUrl] = useState<string>(() => getCashfreePaymentLink());
-  const [gatewayConfigured, setGatewayConfigured] = useState<boolean | null>(null);
-
-  // Listen for direct link updates from admin or config
-  useEffect(() => {
-    const updateLink = () => {
-      setCashfreeDirectUrl(getCashfreePaymentLink());
-    };
-    updateLink();
-    window.addEventListener('cashfree_link_updated', updateLink);
-    window.addEventListener('storage', updateLink);
-    // Also fetch config in background
-    fetch('/api/cashfree/config')
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          if (data.directPaymentLink) {
-            setCashfreeDirectUrl(data.directPaymentLink);
-          }
-          setGatewayConfigured(Boolean(data.isConfigured));
-        }
-      })
-      .catch(() => {});
-    return () => {
-      window.removeEventListener('cashfree_link_updated', updateLink);
-      window.removeEventListener('storage', updateLink);
-    };
-  }, []);
 
   const [activeBooking, setActiveBooking] = useState<BookingItemDetails>({
     serviceTitle: 'Cinematic Duo (Photo + Video)',
@@ -240,12 +211,12 @@ export default function PricingSection() {
                     }`}
                   >
                     <CreditCard size={14} />
-                    <span>Book Advance (50%) • Cashfree</span>
+                    <span>Book Advance (50%)</span>
                   </button>
 
                   <div className="flex items-center justify-center gap-1.5 pt-2 text-[10px] text-white/55 font-mono">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
-                    <span>Cashfree Gateway • UPI • Cards • NetBanking</span>
+                    <span>Direct Kotak Bank UPI • IMPS • Instant Receipt</span>
                   </div>
                 </div>
               </motion.div>
@@ -361,8 +332,8 @@ export default function PricingSection() {
         </motion.div>
       </div>
 
-      {/* Cashfree Booking Retainer Modal */}
-      <CashfreeBookingModal
+      {/* Direct Booking Retainer Modal */}
+      <DirectBookingModal
         isOpen={isBookingModalOpen}
         onClose={() => setIsBookingModalOpen(false)}
         bookingDetails={activeBooking}

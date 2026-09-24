@@ -2,10 +2,6 @@ import fs from 'fs';
 import path from 'path';
 
 export interface ServerSecrets {
-  CASHFREE_APP_ID?: string;
-  CASHFREE_SECRET_KEY?: string;
-  CASHFREE_MODE?: 'production' | 'sandbox';
-  CASHFREE_PAYMENT_LINK?: string;
   DESTINATION_EMAIL?: string;
   SMTP_HOST?: string;
   SMTP_PORT?: string;
@@ -108,10 +104,6 @@ function maskSecret(val?: string, visibleChars = 4): string {
  * Get masked secrets representation for the authenticated admin dashboard
  */
 export function getMaskedSecrets() {
-  const cfAppId = process.env.CASHFREE_APP_ID?.trim() || '';
-  const cfSecret = process.env.CASHFREE_SECRET_KEY?.trim() || '';
-  const cfMode = process.env.CASHFREE_MODE?.trim() || 'production';
-  const cfLink = process.env.CASHFREE_PAYMENT_LINK?.trim() || '';
   const destEmail = process.env.DESTINATION_EMAIL?.trim() || 'amanproductionsteam@gmail.com';
   const smtpUser = process.env.SMTP_USER?.trim() || 'amanproductionsteam@gmail.com';
   const smtpPass = process.env.SMTP_PASS?.trim() || '';
@@ -121,15 +113,6 @@ export function getMaskedSecrets() {
   const resendKey = process.env.RESEND_API_KEY?.trim() || '';
 
   return {
-    cashfree: {
-      isConfigured: Boolean(cfAppId && cfSecret),
-      appId: cfAppId ? maskSecret(cfAppId, 4) : '',
-      appIdRaw: cfAppId,
-      hasSecretKey: Boolean(cfSecret),
-      secretKeyMasked: cfSecret ? maskSecret(cfSecret, 6) : '',
-      mode: cfMode,
-      paymentLink: cfLink,
-    },
     email: {
       isConfigured: Boolean(smtpUser && smtpPass),
       destinationEmail: destEmail,

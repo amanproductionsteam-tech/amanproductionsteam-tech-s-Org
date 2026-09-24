@@ -336,7 +336,7 @@ export const PRICING_FAQS = [
   },
   {
     q: 'How do you handle payment milestones for shoots?',
-    a: 'We accept online date reservation retainers directly through Cashfree Payments, supporting instant UPI (Google Pay, PhonePe, Paytm, BHIM, QR), Credit/Debit Cards, NetBanking, and Wallets. Our standard schedule is a 50% advance retainer to guarantee your crew and camera date, 30% on the day of shoot, and the remaining 20% on final 4K master delivery.',
+    a: 'We accept date reservation retainers directly via Kotak Mahindra Bank UPI (Google Pay, PhonePe, Paytm, BHIM QR) and direct IMPS/NEFT transfers. Instant official receipts with unique booking references are issued immediately. Our standard schedule is a 50% advance retainer to guarantee your crew and camera date, 30% on the day of shoot, and the remaining 20% on final 4K master delivery.',
   },
   {
     q: 'Are travel and accommodation included in the price?',

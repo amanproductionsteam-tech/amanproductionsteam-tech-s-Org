@@ -142,7 +142,7 @@ export default function Navbar() {
                   onClick={() => setIsOpen(false)}
                   className="inline-flex items-center justify-center px-6 py-3 bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-bold uppercase tracking-widest rounded-sm shadow-[0_0_20px_rgba(16,185,129,0.4)] transition-all"
                 >
-                  Book Advance via Cashfree
+                  Book Advance Online
                 </a>
               </div>
             </nav>

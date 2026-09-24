@@ -13,7 +13,7 @@ export interface PersistentBooking {
   eventVenue?: string;
   customNotes?: string;
   status: 'PENDING' | 'PENDING_VERIFICATION' | 'PAID' | 'FAILED' | 'REJECTED' | 'CANCELLED';
-  paymentMode: 'Cashfree' | 'Direct UPI / QR Transfer' | 'Bank Transfer' | 'Manual';
+  paymentMode: 'Direct Kotak UPI' | 'Direct UPI / QR Transfer' | 'Bank Transfer' | 'Manual' | string;
   paymentSessionId?: string;
   cfPaymentId?: string;
   bankReference?: string; // UTR or Bank Reference

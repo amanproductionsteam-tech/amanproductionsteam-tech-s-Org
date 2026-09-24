@@ -1,11 +1,12 @@
-// Centralized Payment Gateway Configuration for Aman Visual Studio
-// Payment Processing: Exclusive Cashfree Integration (UPI, Credit/Debit Cards, NetBanking)
+// Centralized Payment & Booking Configuration for Aman Visual Studio
+// Official Direct Kotak Mahindra Bank UPI & Account Transfer
 
 export interface PaymentGatewayConfig {
-  gateway: 'cashfree';
+  gateway: 'direct_upi';
   studioName: string;
   officialEmail: string;
   officialPhone: string;
+  upiId: string;
   upiNumber: string;
   bankDetails: {
     bankName: string;
@@ -15,11 +16,12 @@ export interface PaymentGatewayConfig {
   };
 }
 
-export const CASHFREE_PAYMENT_CONFIG: PaymentGatewayConfig = {
-  gateway: 'cashfree',
+export const STUDIO_PAYMENT_CONFIG: PaymentGatewayConfig = {
+  gateway: 'direct_upi',
   studioName: 'Aman Visual',
   officialEmail: 'amanproductionsteam@gmail.com',
   officialPhone: '+918827474622',
+  upiId: '8827474622@ybl',
   upiNumber: '8827474622',
   bankDetails: {
     bankName: 'Kotak Mahindra Bank',
@@ -29,30 +31,5 @@ export const CASHFREE_PAYMENT_CONFIG: PaymentGatewayConfig = {
   }
 };
 
-export const DEFAULT_CASHFREE_PAYMENT_LINK =
-  (typeof import.meta !== 'undefined' && (import.meta as unknown as { env?: Record<string, string> }).env?.VITE_CASHFREE_PAYMENT_LINK) ||
-  '';
-
-export function getCashfreePaymentLink(): string {
-  try {
-    const saved = localStorage.getItem('aman_cashfree_payment_link');
-    if (saved && saved.trim().startsWith('http')) {
-      return saved.trim();
-    }
-  } catch {
-    // LocalStorage unavailable
-  }
-  return DEFAULT_CASHFREE_PAYMENT_LINK;
-}
-
-export function saveCashfreePaymentLink(link: string): void {
-  try {
-    localStorage.setItem('aman_cashfree_payment_link', link.trim());
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new Event('cashfree_link_updated'));
-    }
-  } catch (err) {
-    console.error('Failed to save Cashfree payment link to storage:', err);
-  }
-}
-
+// Backwards compatibility alias
+export const CASHFREE_PAYMENT_CONFIG = STUDIO_PAYMENT_CONFIG;

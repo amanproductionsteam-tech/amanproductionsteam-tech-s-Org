@@ -30,7 +30,7 @@ import {
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import Breadcrumbs from '../components/Breadcrumbs';
-import CashfreeBookingModal, { type BookingItemDetails } from '../components/CashfreeBookingModal';
+import DirectBookingModal, { type BookingItemDetails } from '../components/DirectBookingModal';
 import { 
   CORE_PRICING_PACKAGES, 
   SERVICE_RATE_CARDS, 
@@ -39,28 +39,10 @@ import {
   type PricingPackage,
   type ServiceRateCard 
 } from '../data/pricingData';
-import { getCashfreePaymentLink } from '../config/payment';
 
 export default function PricingPage() {
-  // Cashfree Booking Modal State
+  // Booking Modal State
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
-  const [cashfreeDirectUrl, setCashfreeDirectUrl] = useState<string>(() => getCashfreePaymentLink());
-  const [gatewayConfigured, setGatewayConfigured] = useState<boolean | null>(null);
-
-  // Listen for direct link updates from admin or config
-  useEffect(() => {
-    fetch('/api/cashfree/config')
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          if (data.directPaymentLink) {
-            setCashfreeDirectUrl(data.directPaymentLink);
-          }
-          setGatewayConfigured(Boolean(data.isConfigured));
-        }
-      })
-      .catch(() => {});
-  }, []);
   const [activeBooking, setActiveBooking] = useState<BookingItemDetails>({
     serviceTitle: 'Portrait & Headshot Session',
     totalEstimate: 14000,
@@ -129,7 +111,7 @@ export default function PricingPage() {
     );
   };
 
-  // Booking trigger handlers for Cashfree
+  // Booking trigger handlers for Direct Retainer Booking
   const openPackageBooking = (pkg: PricingPackage) => {
     setActiveBooking({
       serviceTitle: pkg.name,
@@ -297,16 +279,16 @@ export default function PricingPage() {
             </div>
           </div>
 
-          {/* Cashfree Payment Gateway Trust Banner */}
+          {/* Official Bank UPI Trust Banner */}
           <div className="mt-8 p-3 bg-[#0c0c0c] border border-emerald-500/30 rounded-full max-w-2xl mx-auto flex items-center justify-between gap-4 px-6 text-xs text-white/80 shadow-xl flex-wrap sm:flex-nowrap">
             <div className="flex items-center gap-2 font-medium">
               <ShieldCheck size={16} className="text-emerald-400 shrink-0" />
-              <span>Direct Booking via <strong className="text-white">Cashfree Payments</strong></span>
+              <span>Official Retainer via <strong className="text-white">Kotak Mahindra Bank UPI</strong></span>
             </div>
             <div className="flex items-center gap-2.5 text-[11px] font-mono text-emerald-400/90 tracking-wider">
               <span>Instant UPI (GPay / PhonePe / Paytm)</span>
               <span>•</span>
-              <span>Cards & NetBanking</span>
+              <span>Verified Receipt</span>
             </div>
           </div>
         </div>
@@ -418,10 +400,10 @@ export default function PricingPage() {
                       }`}
                     >
                       <CreditCard size={14} />
-                      <span>Book Advance (50%) • Cashfree</span>
+                      <span>Book Advance (50%)</span>
                     </button>
                     <div className="text-center mt-2 text-[10px] text-white/50 font-mono">
-                      Cashfree Gateway • Instant UPI • Cards • NetBanking
+                      Kotak Bank UPI QR • Instant Verified Receipt
                     </div>
                   </div>
                 </motion.div>
@@ -657,7 +639,7 @@ export default function PricingPage() {
                     className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 rounded-sm shadow-xl transition-all cursor-pointer"
                   >
                     <CreditCard size={15} />
-                    <span>Book via Cashfree (Advance: ₹{Math.round(calculatedEstimate.estimatedExact * 0.5).toLocaleString('en-IN')})</span>
+                    <span>Reserve Session (Advance: ₹{Math.round(calculatedEstimate.estimatedExact * 0.5).toLocaleString('en-IN')})</span>
                   </button>
 
                   <a
@@ -778,7 +760,7 @@ export default function PricingPage() {
                       >
                         <CreditCard size={15} />
                         <span>
-                          {`Book via Cashfree (Advance: ₹${Math.round(calculatedEstimate.estimatedExact * 0.5).toLocaleString('en-IN')})`}
+                          {`Book Session (Advance: ₹${Math.round(calculatedEstimate.estimatedExact * 0.5).toLocaleString('en-IN')})`}
                         </span>
                       </button>
 
@@ -894,10 +876,10 @@ export default function PricingPage() {
                     type="button"
                     onClick={() => openRateCardBooking(card)}
                     className="w-full sm:w-auto px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-[10px] uppercase tracking-wider transition-colors rounded-sm flex items-center justify-center gap-1.5 cursor-pointer shadow-sm shrink-0"
-                    title="Direct advance reservation via Cashfree"
+                    title="Direct advance reservation via Kotak Bank UPI"
                   >
                     <CreditCard size={12} />
-                    <span>Book via Cashfree (₹{Math.round(card.startingPrice * 0.5).toLocaleString('en-IN')})</span>
+                    <span>Book Session (₹{Math.round(card.startingPrice * 0.5).toLocaleString('en-IN')})</span>
                   </button>
                 </div>
               </motion.div>
@@ -1007,8 +989,8 @@ export default function PricingPage() {
         </div>
       </section>
 
-      {/* Cashfree Online Booking Retainer Modal */}
-      <CashfreeBookingModal
+      {/* Direct Online Booking Retainer Modal */}
+      <DirectBookingModal
         isOpen={isBookingModalOpen}
         onClose={() => setIsBookingModalOpen(false)}
         bookingDetails={activeBooking}

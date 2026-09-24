@@ -223,8 +223,8 @@ export default function SeoMetadata({
     } else if (pathname === '/pay-test') {
       config = {
         title: 'Direct Payment Checkout | Aman Visual',
-        description: 'Secure Cashfree Payments checkout portal for Aman Visual production retainers.',
-        keywords: 'pay online, Cashfree payment, Aman Visual checkout',
+        description: 'Direct Kotak Mahindra Bank UPI checkout portal for Aman Visual production retainers.',
+        keywords: 'pay online, UPI payment, Aman Visual checkout, Kotak bank',
         ogType: 'website',
         noIndex: true
       };

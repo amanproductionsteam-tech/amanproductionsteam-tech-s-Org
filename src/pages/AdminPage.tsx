@@ -86,15 +86,6 @@ export default function AdminPage() {
 
   // Production Secrets & API Keys state
   interface SecretsState {
-    cashfree: {
-      isConfigured: boolean;
-      appId: string;
-      appIdRaw: string;
-      hasSecretKey: boolean;
-      secretKeyMasked: string;
-      mode: string;
-      paymentLink: string;
-    };
     email: {
       isConfigured: boolean;
       destinationEmail: string;
@@ -121,10 +112,6 @@ export default function AdminPage() {
   const [saveErrorMsg, setSaveErrorMsg] = useState('');
 
   // Form fields for editing secrets
-  const [formCfAppId, setFormCfAppId] = useState('');
-  const [formCfSecretKey, setFormCfSecretKey] = useState('');
-  const [formCfMode, setFormCfMode] = useState<'production' | 'sandbox'>('production');
-  const [formCfPaymentLink, setFormCfPaymentLink] = useState('');
   const [formDestEmail, setFormDestEmail] = useState('amanproductionsteam@gmail.com');
   const [formSmtpUser, setFormSmtpUser] = useState('amanproductionsteam@gmail.com');
   const [formSmtpPass, setFormSmtpPass] = useState('');
@@ -133,13 +120,10 @@ export default function AdminPage() {
   const [formSmtpSecure, setFormSmtpSecure] = useState('true');
   const [formSenderEmail, setFormSenderEmail] = useState('"Aman Visual" <amanproductionsteam@gmail.com>');
   const [formAdminPassword, setFormAdminPassword] = useState('');
-  const [showSecretKeyInput, setShowSecretKeyInput] = useState(false);
   const [showSmtpPassInput, setShowSmtpPassInput] = useState(false);
   const [showAdminPassInput, setShowAdminPassInput] = useState(false);
 
   // Testing status
-  const [testingCashfree, setTestingCashfree] = useState(false);
-  const [testCashfreeResult, setTestCashfreeResult] = useState<{ success: boolean; message: string } | null>(null);
   const [testingEmail, setTestingEmail] = useState(false);
   const [testEmailResult, setTestEmailResult] = useState<{ success: boolean; message: string } | null>(null);
 
@@ -155,15 +139,6 @@ export default function AdminPage() {
         const data = await res.json();
         if (data.success && data.secrets) {
           setSecretsData(data.secrets);
-          if (data.secrets.cashfree?.appIdRaw) {
-            setFormCfAppId(data.secrets.cashfree.appIdRaw);
-          }
-          if (data.secrets.cashfree?.mode) {
-            setFormCfMode(data.secrets.cashfree.mode as any);
-          }
-          if (data.secrets.cashfree?.paymentLink) {
-            setFormCfPaymentLink(data.secrets.cashfree.paymentLink);
-          }
           if (data.secrets.email?.destinationEmail) {
             setFormDestEmail(data.secrets.email.destinationEmail);
           }
@@ -198,16 +173,12 @@ export default function AdminPage() {
     setSaveErrorMsg('');
     try {
       const payload: any = {
-        cashfreeMode: formCfMode,
-        cashfreePaymentLink: formCfPaymentLink,
         destinationEmail: formDestEmail,
         smtpHost: formSmtpHost,
         smtpPort: formSmtpPort,
         smtpSecure: formSmtpSecure,
         senderEmail: formSenderEmail,
       };
-      if (formCfAppId.trim()) payload.cashfreeAppId = formCfAppId.trim();
-      if (formCfSecretKey.trim()) payload.cashfreeSecretKey = formCfSecretKey.trim();
       if (formSmtpUser.trim()) payload.smtpUser = formSmtpUser.trim();
       if (formSmtpPass.trim()) payload.smtpPass = formSmtpPass.trim();
       if (formAdminPassword.trim()) payload.adminPassword = formAdminPassword.trim();
@@ -225,46 +196,12 @@ export default function AdminPage() {
       if (data.secrets) {
         setSecretsData(data.secrets);
       }
-      setFormCfSecretKey('');
       setFormSmtpPass('');
       setFormAdminPassword('');
-      fetch('/api/cashfree/config')
-        .then((r) => r.json())
-        .then((cf) => {
-          if (cf.success) {
-            setCashfreeStatus({
-              isConfigured: cf.isConfigured,
-              mode: cf.mode,
-              studioName: cf.studioName,
-              directPaymentLink: cf.directPaymentLink,
-            });
-          }
-        })
-        .catch(() => null);
     } catch (err: any) {
       setSaveErrorMsg(err.message || 'Error saving secrets.');
     } finally {
       setSavingSecrets(false);
-    }
-  };
-
-  const handleTestCashfree = async () => {
-    setTestingCashfree(true);
-    setTestCashfreeResult(null);
-    try {
-      const res = await fetch('/api/admin/test-cashfree', { method: 'POST' });
-      const data = await res.json();
-      setTestCashfreeResult({
-        success: data.success,
-        message: data.message || data.error || 'Verification completed.'
-      });
-    } catch (err: any) {
-      setTestCashfreeResult({
-        success: false,
-        message: err.message || 'Failed to connect to Cashfree test API.'
-      });
-    } finally {
-      setTestingCashfree(false);
     }
   };
 
@@ -285,36 +222,6 @@ export default function AdminPage() {
       });
     } finally {
       setTestingEmail(false);
-    }
-  };
-
-  // Cashfree Gateway Status
-  const [cashfreeStatus, setCashfreeStatus] = useState<{
-    isConfigured: boolean;
-    mode: string;
-    studioName?: string;
-    directPaymentLink?: string;
-  }>({ isConfigured: false, mode: 'sandbox' });
-  const [cashfreeLinkInput, setCashfreeLinkInput] = useState<string>(() => {
-    try {
-      return localStorage.getItem('aman_cashfree_payment_link') || '';
-    } catch {
-      return '';
-    }
-  });
-  const [cashfreeLinkSaved, setCashfreeLinkSaved] = useState(false);
-
-  const handleSaveCashfreeLink = (e: FormEvent) => {
-    e.preventDefault();
-    try {
-      localStorage.setItem('aman_cashfree_payment_link', cashfreeLinkInput.trim());
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new Event('cashfree_link_updated'));
-      }
-      setCashfreeLinkSaved(true);
-      setTimeout(() => setCashfreeLinkSaved(false), 3000);
-    } catch (err) {
-      console.error('Failed to save Cashfree payment link:', err);
     }
   };
 
@@ -371,28 +278,13 @@ export default function AdminPage() {
   const fetchEnquiries = async () => {
     setLoading(true);
     try {
-      const [res, cfRes] = await Promise.all([
+      const [res] = await Promise.all([
         fetch('/api/contact'),
-        fetch('/api/cashfree/config').catch(() => null),
         fetchBookings().catch(() => null)
       ]);
       const data = await res.json();
       if (data.success && Array.isArray(data.enquiries)) {
         setEnquiries(data.enquiries);
-      }
-      if (cfRes && cfRes.ok) {
-        const cfData = await cfRes.json();
-        if (cfData.success) {
-          setCashfreeStatus({
-            isConfigured: cfData.isConfigured,
-            mode: cfData.mode,
-            studioName: cfData.studioName,
-            directPaymentLink: cfData.directPaymentLink
-          });
-          if (cfData.directPaymentLink && !cashfreeLinkInput) {
-            setCashfreeLinkInput(cfData.directPaymentLink);
-          }
-        }
       }
     } catch (err) {
       console.error('Failed to fetch enquiries:', err);
@@ -698,32 +590,25 @@ export default function AdminPage() {
           </div>
         </div>
 
-        {/* Cashfree Payment Gateway Integration Status Box */}
+        {/* Official Kotak Mahindra Bank UPI & Direct Booking Status Box */}
         <div className="bg-[#121212] border border-emerald-500/30 p-5 mb-8 rounded-sm space-y-4">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <div className="flex items-center gap-2 text-emerald-400 text-xs font-mono uppercase tracking-wider font-semibold">
                 <CreditCard size={14} />
-                <span>Cashfree Payment Gateway (Exclusive Gateway)</span>
+                <span>Official Kotak Mahindra Bank UPI & Direct Reservation</span>
               </div>
               <p className="text-xs text-white/60 mt-1">
-                All booking retainers and advance payments across the website are processed exclusively via Cashfree Payments.
+                Client retainers and bookings are paid directly to Kotak Mahindra Bank (UPI ID: <span className="text-white font-mono font-bold">8827474622@ybl</span> / A/C: <span className="text-white font-mono font-bold">1645939816</span>).
               </p>
             </div>
 
             <div className="flex items-center gap-3 flex-wrap">
               <div className="flex items-center gap-2 px-3 py-1.5 bg-black/60 border border-white/10 rounded text-xs font-mono">
-                <span className="text-white/40">Status:</span>
+                <span className="text-white/40">Gateway:</span>
                 <span className="flex items-center gap-1.5 text-emerald-400 font-semibold">
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  Active
-                </span>
-              </div>
-
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-black/60 border border-white/10 rounded text-xs font-mono">
-                <span className="text-white/40">Mode:</span>
-                <span className="text-white uppercase font-bold text-[11px] px-1.5 py-0.5 bg-white/10 rounded">
-                  {cashfreeStatus.mode}
+                  Direct Kotak UPI
                 </span>
               </div>
 
@@ -737,41 +622,18 @@ export default function AdminPage() {
             </div>
           </div>
 
-          {/* Optional Direct Cashfree Payment Page / Hosted Form Link */}
-          <div className="pt-3 border-t border-white/10">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <span className="text-xs font-bold text-white block">Direct Cashfree Hosted Payment Page URL (Optional)</span>
-                <span className="text-[11px] text-white/50">
-                  If you have a dedicated Cashfree payment form / payment link URL (e.g. from Cashfree Merchant Dashboard), paste it here.
-                </span>
-              </div>
-              <form onSubmit={handleSaveCashfreeLink} className="flex items-center gap-2 w-full sm:w-auto sm:min-w-[400px]">
-                <input
-                  type="url"
-                  placeholder="https://payments.cashfree.com/forms/..."
-                  value={cashfreeLinkInput}
-                  onChange={(e) => setCashfreeLinkInput(e.target.value)}
-                  className="flex-1 bg-black/60 border border-white/20 px-3 py-1.5 text-xs text-white placeholder-white/30 rounded focus:border-emerald-500 focus:outline-none font-mono"
-                />
-                <button
-                  type="submit"
-                  className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-black text-xs uppercase tracking-wider font-bold rounded cursor-pointer transition-all whitespace-nowrap"
-                >
-                  {cashfreeLinkSaved ? 'Saved ✓' : 'Save'}
-                </button>
-                {cashfreeLinkInput && (
-                  <a
-                    href={cashfreeLinkInput}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="p-1.5 border border-white/20 hover:border-white text-white/70 hover:text-white rounded flex items-center justify-center transition-colors"
-                    title="Open your Cashfree Payment Page in new tab"
-                  >
-                    <ExternalLink size={13} />
-                  </a>
-                )}
-              </form>
+          <div className="pt-3 border-t border-white/10 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-white/70">
+            <div className="bg-black/40 p-2.5 rounded border border-white/5">
+              <span className="text-[10px] text-white/40 uppercase font-mono block">Beneficiary</span>
+              <strong className="text-white">Aman Tiwari</strong>
+            </div>
+            <div className="bg-black/40 p-2.5 rounded border border-white/5">
+              <span className="text-[10px] text-white/40 uppercase font-mono block">UPI ID / Phone</span>
+              <strong className="text-emerald-400 font-mono">8827474622@ybl</strong>
+            </div>
+            <div className="bg-black/40 p-2.5 rounded border border-white/5">
+              <span className="text-[10px] text-white/40 uppercase font-mono block">Account / IFSC</span>
+              <strong className="text-white font-mono">1645939816 • KKBK0000133</strong>
             </div>
           </div>
         </div>
@@ -868,7 +730,7 @@ export default function AdminPage() {
           >
             <Key size={15} />
             <span>Production Secrets & API Keys</span>
-            {secretsData?.cashfree?.isConfigured && secretsData?.email?.isConfigured ? (
+            {secretsData?.email?.isConfigured ? (
               <span className="px-2 py-0.5 rounded-full text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-mono">
                 Active ✓
               </span>
@@ -945,9 +807,9 @@ export default function AdminPage() {
                       >
                         {enquiry.status}
                       </span>
-                      {enquiry.message?.includes('Cashfree') && (
+                      {enquiry.message?.includes('Retainer') && (
                         <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 inline-flex items-center gap-1">
-                          <CreditCard size={11} /> Cashfree Retainer Paid
+                          <CreditCard size={11} /> Booking Retainer Paid
                         </span>
                       )}
                       <span className="text-[11px] text-white/40 flex items-center gap-1">
@@ -1129,7 +991,7 @@ export default function AdminPage() {
                         </span>
                         {b.orderId && b.orderId !== b.id && (
                           <span className="font-mono text-xs text-emerald-400 bg-emerald-500/10 px-2 py-0.5 border border-emerald-500/20">
-                            Cashfree: {b.orderId}
+                            Order: {b.orderId}
                           </span>
                         )}
                         <span
@@ -1144,7 +1006,7 @@ export default function AdminPage() {
                           {isPending ? 'Pending Bank Verification' : b.status}
                         </span>
                         <span className="text-[10px] uppercase font-mono px-2 py-0.5 bg-white/5 border border-white/10 text-white/60">
-                          {isDirectUpi ? 'Kotak Direct UPI QR' : 'Cashfree Payment Gateway'}
+                          {isDirectUpi ? 'Kotak Direct UPI QR' : 'Advance Booking Retainer'}
                         </span>
                         <span className="text-[11px] text-white/40 flex items-center gap-1">
                           <Clock size={12} />
@@ -1281,7 +1143,7 @@ export default function AdminPage() {
                 </h2>
               </div>
               <p className="text-xs text-white/60 leading-relaxed max-w-2xl">
-                Configure your live Cashfree payment gateway keys, SMTP credentials for customer enquiry delivery, and studio owner access. Values are encrypted and securely stored on the server—never in client bundles or public repositories.
+                Configure your SMTP credentials for customer enquiry delivery and studio owner access. Values are encrypted and securely stored on the server—never in client bundles or public repositories.
               </p>
             </div>
 
@@ -1299,17 +1161,15 @@ export default function AdminPage() {
           {/* Quick Status Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-2">
             <div className="bg-black/50 border border-white/5 p-3 rounded">
-              <span className="text-[10px] uppercase font-mono tracking-wider text-white/40 block">Cashfree Gateway</span>
+              <span className="text-[10px] uppercase font-mono tracking-wider text-white/40 block">Studio Payment Mode</span>
               <div className="flex items-center gap-2 mt-1">
-                <span className={`w-2 h-2 rounded-full ${secretsData?.cashfree?.isConfigured ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                 <span className="text-xs font-semibold text-white">
-                  {secretsData?.cashfree?.isConfigured
-                    ? `Active (${(secretsData.cashfree.mode || 'production').toUpperCase()})`
-                    : 'Not Configured'}
+                  Kotak Mahindra Bank UPI
                 </span>
               </div>
               <div className="text-[11px] text-white/50 font-mono mt-1 truncate">
-                App ID: {secretsData?.cashfree?.appId || 'Not set'}
+                UPI ID: 8827474622@ybl
               </div>
             </div>
 
@@ -1357,141 +1217,52 @@ export default function AdminPage() {
 
         {/* Main Secrets Form */}
         <form onSubmit={handleSaveSecrets} className="space-y-6">
-          {/* Section 1: Cashfree Payments Gateway */}
+          {/* Section 1: Kotak Mahindra Bank UPI Configuration */}
           <div className="bg-[#121212] border border-white/10 p-6 rounded-sm space-y-5">
             <div className="border-b border-white/10 pb-3 flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-semibold text-white uppercase tracking-wider flex items-center gap-2">
                   <CreditCard size={15} className="text-emerald-400" />
-                  <span>Cashfree Production Gateway Credentials</span>
+                  <span>Official Kotak Mahindra Bank & UPI Details</span>
                 </h3>
                 <p className="text-xs text-white/50 mt-0.5">
-                  Get keys from: Cashfree Merchant Dashboard &gt; Developers &gt; API Keys
+                  Direct client payments are credited straight to your registered Kotak Mahindra Bank account.
                 </p>
               </div>
-              <span className="text-[10px] uppercase font-mono px-2 py-0.5 bg-white/5 border border-white/10 text-white/60">
-                Server-Side Only
+              <span className="text-[10px] uppercase font-mono px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-semibold">
+                Direct UPI Active
               </span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-mono uppercase text-white/70 mb-1.5">
-                  Cashfree App ID / Client ID
-                </label>
-                <input
-                  type="text"
-                  value={formCfAppId}
-                  onChange={(e) => setFormCfAppId(e.target.value)}
-                  placeholder="e.g. CF123456789... or production client ID"
-                  className="w-full bg-black/60 border border-white/15 px-3 py-2 text-xs text-white placeholder-white/30 focus:outline-none focus:border-emerald-500 font-mono"
-                />
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="bg-black/50 p-3 rounded border border-white/5">
+                <span className="text-[10px] uppercase font-mono text-white/40 block">Account Holder</span>
+                <span className="text-xs font-bold text-white">Aman Tiwari</span>
               </div>
-
-              <div>
-                <label className="block text-xs font-mono uppercase text-white/70 mb-1.5 flex items-center justify-between">
-                  <span>Cashfree Secret Key</span>
-                  {secretsData?.cashfree?.hasSecretKey && (
-                    <span className="text-[10px] text-emerald-400 font-mono lowercase">
-                      (configured: {secretsData.cashfree.secretKeyMasked})
-                    </span>
-                  )}
-                </label>
-                <div className="relative">
-                  <input
-                    type={showSecretKeyInput ? 'text' : 'password'}
-                    value={formCfSecretKey}
-                    onChange={(e) => setFormCfSecretKey(e.target.value)}
-                    placeholder={
-                      secretsData?.cashfree?.hasSecretKey
-                        ? 'Leave empty to keep existing key, or paste new key to update'
-                        : 'cfsk_ma_prod_...'
-                    }
-                    className="w-full bg-black/60 border border-white/15 px-3 py-2 pr-10 text-xs text-white placeholder-white/30 focus:outline-none focus:border-emerald-500 font-mono"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowSecretKeyInput(!showSecretKeyInput)}
-                    className="absolute right-2.5 top-2.5 text-white/40 hover:text-white"
-                  >
-                    {showSecretKeyInput ? <EyeOff size={14} /> : <Eye size={14} />}
-                  </button>
-                </div>
+              <div className="bg-black/50 p-3 rounded border border-white/5">
+                <span className="text-[10px] uppercase font-mono text-white/40 block">Bank Name</span>
+                <span className="text-xs font-bold text-white">Kotak Mahindra Bank</span>
+              </div>
+              <div className="bg-black/50 p-3 rounded border border-white/5">
+                <span className="text-[10px] uppercase font-mono text-white/40 block">Account Number</span>
+                <span className="text-xs font-mono font-bold text-emerald-400">1645939816</span>
+              </div>
+              <div className="bg-black/50 p-3 rounded border border-white/5">
+                <span className="text-[10px] uppercase font-mono text-white/40 block">IFSC Code</span>
+                <span className="text-xs font-mono font-bold text-white">KKBK0000133</span>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+            <div className="p-3.5 bg-black/40 border border-white/10 rounded flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
               <div>
-                <label className="block text-xs font-mono uppercase text-white/70 mb-1.5">
-                  Gateway Mode
-                </label>
-                <select
-                  value={formCfMode}
-                  onChange={(e) => setFormCfMode(e.target.value as any)}
-                  className="w-full bg-black/60 border border-white/15 px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
-                >
-                  <option value="production">Production (Live Real-Money Charges)</option>
-                  <option value="sandbox">Sandbox (Testing / Pre-production)</option>
-                </select>
-                <p className="text-[11px] text-white/40 mt-1">
-                  For production, use API keys from merchant.cashfree.com.
-                </p>
+                <span className="text-white/40 uppercase font-mono text-[10px] block">Official UPI ID</span>
+                <span className="font-mono text-sm font-bold text-emerald-400">8827474622@ybl</span>
+                <span className="text-[11px] text-white/50 ml-2">(Phone: +91 8827474622)</span>
               </div>
-
-              <div>
-                <label className="block text-xs font-mono uppercase text-white/70 mb-1.5">
-                  Hosted Payment Form Link (Optional)
-                </label>
-                <input
-                  type="text"
-                  value={formCfPaymentLink}
-                  onChange={(e) => setFormCfPaymentLink(e.target.value)}
-                  placeholder="https://payments.cashfree.com/forms/your-form"
-                  className="w-full bg-black/60 border border-white/15 px-3 py-2 text-xs text-white placeholder-white/30 focus:outline-none focus:border-emerald-500 font-mono"
-                />
-                <p className="text-[11px] text-white/40 mt-1">
-                  Optional direct checkout URL generated in your Cashfree dashboard.
-                </p>
+              <div className="text-[11px] text-white/50">
+                Clients receive instant digital retainer receipts with reference numbers on payment submission.
               </div>
             </div>
-
-            {/* Cashfree Webhook and Live Test */}
-            <div className="pt-3 border-t border-white/5 flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="text-[11px] text-white/50 space-y-1">
-                <div>
-                  Webhook Endpoint:{' '}
-                  <strong className="text-white font-mono">
-                    {typeof window !== 'undefined' ? `${window.location.origin}/api/cashfree/webhook` : '/api/cashfree/webhook'}
-                  </strong>
-                </div>
-                <div>Webhooks are verified cryptographically via HMAC-SHA256 with your Secret Key.</div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleTestCashfree}
-                  disabled={testingCashfree || (!secretsData?.cashfree?.hasSecretKey && !formCfSecretKey)}
-                  className="px-3.5 py-1.5 bg-white/10 hover:bg-white/15 disabled:opacity-40 text-white text-xs border border-white/15 rounded transition-all cursor-pointer inline-flex items-center gap-1.5 shrink-0"
-                >
-                  <RefreshCw size={13} className={testingCashfree ? 'animate-spin' : ''} />
-                  <span>{testingCashfree ? 'Testing...' : 'Test Cashfree Connection'}</span>
-                </button>
-              </div>
-            </div>
-
-            {testCashfreeResult && (
-              <div
-                className={`p-3 text-xs rounded flex items-center gap-2 ${
-                  testCashfreeResult.success
-                    ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-300'
-                    : 'bg-red-500/10 border border-red-500/30 text-red-300'
-                }`}
-              >
-                {testCashfreeResult.success ? <CheckCircle size={14} /> : <ShieldAlert size={14} />}
-                <span>{testCashfreeResult.message}</span>
-              </div>
-            )}
           </div>
 
           {/* Section 2: Transactional Email & Enquiries */}

@@ -432,7 +432,7 @@ Receipt #: ${payload.receiptNumber || 'N/A'}
 Service: ${payload.serviceTitle}
 Advance Amount: INR ₹${payload.amount.toLocaleString('en-IN')}
 Payment Mode: ${payload.paymentMode}
-${payload.cfPaymentId ? `Cashfree Payment ID: ${payload.cfPaymentId}\n` : ''}${payload.bankReference ? `Bank UTR / Reference: ${payload.bankReference}\n` : ''}
+${payload.bankReference ? `Bank UTR / Reference: ${payload.bankReference}\n` : ''}
 CUSTOMER DETAILS:
 - Name: ${payload.customerName}
 - Email: ${payload.customerEmail}
@@ -471,7 +471,6 @@ Mumbai, Maharashtra, India
               <tr><td style="padding:8px 0;color:#888;">Advance Amount:</td><td style="padding:8px 0;color:#10b981;font-size:16px;font-weight:bold;">₹${payload.amount.toLocaleString('en-IN')}</td></tr>
               <tr><td style="padding:8px 0;color:#888;">Payment Mode:</td><td style="padding:8px 0;color:#fff;">${payload.paymentMode}</td></tr>
               ${payload.bankReference ? `<tr><td style="padding:8px 0;color:#888;">Bank Reference / UTR:</td><td style="padding:8px 0;color:#fff;font-family:monospace;">${payload.bankReference}</td></tr>` : ''}
-              ${payload.cfPaymentId ? `<tr><td style="padding:8px 0;color:#888;">Cashfree Payment ID:</td><td style="padding:8px 0;color:#fff;font-family:monospace;">${payload.cfPaymentId}</td></tr>` : ''}
               <tr><td style="padding:8px 0;color:#888;">Client:</td><td style="padding:8px 0;color:#fff;">${payload.customerName} (${payload.customerPhone})</td></tr>
               <tr><td style="padding:8px 0;color:#888;">Client Email:</td><td style="padding:8px 0;color:#fff;">${payload.customerEmail}</td></tr>
               <tr><td style="padding:8px 0;color:#888;">Event Date:</td><td style="padding:8px 0;color:#fff;">${payload.eventDate || 'To be scheduled'}</td></tr>

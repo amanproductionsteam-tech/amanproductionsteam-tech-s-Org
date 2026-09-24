@@ -3,99 +3,69 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { 
   ShieldCheck, 
   CreditCard, 
   CheckCircle2, 
   AlertCircle, 
-  ArrowLeft, 
   Copy, 
   Check, 
   ExternalLink, 
-  Sparkles, 
   Phone, 
   Mail, 
   User, 
   QrCode,
-  Lock
+  Lock,
+  Building2,
+  CheckCircle
 } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import Breadcrumbs from '../components/Breadcrumbs';
+import { STUDIO_PAYMENT_CONFIG } from '../config/payment';
 
 export default function TestPaymentPage() {
-  const [searchParams] = useSearchParams();
-  const initialOrderId = searchParams.get('order_id');
-
   const [customerName, setCustomerName] = useState('Aman Visual Client');
   const [customerPhone, setCustomerPhone] = useState('8827474622');
   const [customerEmail, setCustomerEmail] = useState('amanproductionsteam@gmail.com');
-  const [amount, setAmount] = useState(100);
+  const [utrNumber, setUtrNumber] = useState('');
+  const [amount] = useState(100);
 
   const [isLoading, setIsLoading] = useState(false);
-  const [checkoutMode, setCheckoutMode] = useState<'_modal' | '_self'>('_modal');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [copiedUpi, setCopiedUpi] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
-  const [gatewayConfigured, setGatewayConfigured] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    fetch('/api/cashfree/config')
-      .then(res => res.json())
-      .then(d => {
-        if (d && d.success) {
-          setGatewayConfigured(Boolean(d.isConfigured));
-        }
-      })
-      .catch(() => {});
-  }, []);
 
   // Success receipt state
   const [confirmedPayment, setConfirmedPayment] = useState<{
     orderId: string;
     amount: number;
     paymentMode?: string;
-    referenceId?: string;
+    utr: string;
     paidAt: string;
   } | null>(null);
 
-  // Verify on return URL if order_id is in query string
-  useEffect(() => {
-    if (initialOrderId) {
-      verifyExistingOrder(initialOrderId);
-    }
-  }, [initialOrderId]);
+  const upiIntentUrl = `upi://pay?pa=${encodeURIComponent(STUDIO_PAYMENT_CONFIG.upiId)}&pn=${encodeURIComponent(STUDIO_PAYMENT_CONFIG.bankDetails.accountName)}&am=${amount}&cu=INR&tn=${encodeURIComponent('Aman Visual Retainer Test')}`;
+  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=10&data=${encodeURIComponent(upiIntentUrl)}`;
 
-  const verifyExistingOrder = async (orderId: string) => {
-    setIsLoading(true);
-    try {
-      const res = await fetch('/api/cashfree/verify-order', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId })
-      });
-      const text = await res.text();
-      const data = text ? JSON.parse(text) : {};
-
-      if (data.success || data.status === 'PAID') {
-        setConfirmedPayment({
-          orderId,
-          amount: data.amount || 100,
-          paymentMode: data.paymentMode || 'Cashfree Production UPI/Card',
-          referenceId: data.cfPaymentId,
-          paidAt: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
-        });
-      }
-    } catch (err) {
-      console.error('Auto verification error:', err);
-    } finally {
-      setIsLoading(false);
-    }
+  const handleCopyUpi = () => {
+    navigator.clipboard.writeText(STUDIO_PAYMENT_CONFIG.upiId);
+    setCopiedUpi(true);
+    setTimeout(() => setCopiedUpi(false), 2500);
   };
 
-  const handlePay = async (target: '_modal' | '_self' = '_modal') => {
+  const copyCurrentLink = () => {
+    navigator.clipboard.writeText(window.location.href.split('?')[0]);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2500);
+  };
+
+  const handleSubmitBooking = async (e: React.FormEvent) => {
+    e.preventDefault();
     setErrorMessage(null);
+
     if (!customerName.trim()) {
       setErrorMessage('Please enter your name.');
       return;
@@ -103,98 +73,52 @@ export default function TestPaymentPage() {
 
     const cleanPhone = customerPhone.replace(/\D/g, '');
     if (cleanPhone.length < 10) {
-      setErrorMessage('Please enter a valid 10-digit phone number for Cashfree verification.');
+      setErrorMessage('Please enter a valid 10-digit phone number.');
+      return;
+    }
+
+    if (!utrNumber.trim()) {
+      setErrorMessage('Please enter the 12-digit UTR or Bank Transaction Reference Number from your payment app.');
       return;
     }
 
     setIsLoading(true);
     try {
-      // 1. Create order on server
-      const res = await fetch('/api/cashfree/create-order', {
+      const res = await fetch('/api/bookings/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          amount,
           customerName: customerName.trim(),
-          customerPhone: cleanPhone,
           customerEmail: customerEmail.trim(),
-          serviceTitle: `Cashfree Production Live Gateway Test (₹${amount})`,
-          eventVenue: 'Live Payment Verification',
-          returnUrl: `${window.location.origin}/pay-test?order_id={order_id}&status=success`
+          customerPhone: cleanPhone,
+          serviceTitle: `Direct Retainer Verification (₹${amount})`,
+          advanceAmount: amount,
+          totalEstimate: amount,
+          bankReference: utrNumber.trim(),
+          paymentMode: 'Direct Kotak UPI',
+          eventDate: new Date().toISOString().split('T')[0],
+          eventVenue: 'Studio Direct Booking'
         })
       });
 
-      const text = await res.text();
-      let data: any = {};
-      try {
-        data = text ? JSON.parse(text) : {};
-      } catch (e) {
-        throw new Error('Payment gateway response could not be parsed. Please try again.');
-      }
-
+      const data = await res.json();
       if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Failed to initialize payment session with Cashfree.');
+        throw new Error(data.error || 'Failed to submit verification.');
       }
 
-      const { orderId, paymentSessionId, mode } = data;
-
-      // 2. Launch Cashfree JS SDK checkout
-      if (window.Cashfree && paymentSessionId) {
-        const cashfree = window.Cashfree({ mode: mode === 'production' ? 'production' : 'sandbox' });
-
-        if (target === '_self') {
-          // Direct full page redirect
-          cashfree.checkout({
-            paymentSessionId,
-            redirectTarget: '_self'
-          });
-          return;
-        }
-
-        // Modal popup checkout
-        const result = await cashfree.checkout({
-          paymentSessionId,
-          redirectTarget: '_modal'
-        });
-
-        if (result?.error) {
-          throw new Error(result.error.message || 'Payment was cancelled or closed.');
-        }
-
-        // 3. Verify order with server
-        const verifyRes = await fetch('/api/cashfree/verify-order', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            orderId,
-            paymentMode: 'Cashfree Production'
-          })
-        });
-
-        const verifyText = await verifyRes.text();
-        const verifyData = verifyText ? JSON.parse(verifyText) : {};
-
-        setConfirmedPayment({
-          orderId,
-          amount,
-          paymentMode: verifyData.paymentMode || 'Cashfree Production Gateway',
-          paidAt: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
-        });
-      } else {
-        throw new Error('Cashfree SDK is initializing. Please refresh or try again.');
-      }
+      setConfirmedPayment({
+        orderId: data.booking?.id || `AV-BK-${Date.now().toString(36).toUpperCase()}`,
+        amount,
+        paymentMode: 'Kotak Mahindra Bank UPI',
+        utr: utrNumber.trim(),
+        paidAt: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
+      });
     } catch (err: any) {
-      console.error('Payment execution error:', err);
-      setErrorMessage(err.message || 'Unable to open Cashfree payment. Please try again.');
+      console.error('Submission error:', err);
+      setErrorMessage(err.message || 'Unable to submit payment details. Please try again.');
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const copyCurrentLink = () => {
-    navigator.clipboard.writeText(window.location.href.split('?')[0]);
-    setCopiedLink(true);
-    setTimeout(() => setCopiedLink(false), 2500);
   };
 
   return (
@@ -237,18 +161,12 @@ export default function TestPaymentPage() {
               <div>
                 <h1 className="font-display font-bold text-lg text-white uppercase tracking-tight flex items-center gap-2">
                   <span>Aman Visual Studio</span>
-                  {gatewayConfigured === false ? (
-                    <span className="px-2 py-0.5 rounded text-[9px] font-mono uppercase bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                      Gateway Awaiting Configuration
-                    </span>
-                  ) : (
-                    <span className="px-2 py-0.5 rounded text-[9px] font-mono uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                      Live Production
-                    </span>
-                  )}
+                  <span className="px-2 py-0.5 rounded text-[9px] font-mono uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                    Kotak Bank UPI
+                  </span>
                 </h1>
                 <p className="text-xs text-white/50 font-light">
-                  Cashfree Payments • Official Gateway Checkout
+                  Official Retainer & Advance Portal
                 </p>
               </div>
             </div>
@@ -263,23 +181,54 @@ export default function TestPaymentPage() {
 
           <div className="p-6 sm:p-8">
             {!confirmedPayment ? (
-              <form onSubmit={(e) => { e.preventDefault(); handlePay(checkoutMode); }} className="space-y-5">
-                {/* Notice Banner */}
-                {gatewayConfigured === false ? (
-                  <div className="p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-lg flex items-start gap-3 text-xs text-amber-200">
-                    <AlertCircle size={16} className="text-amber-400 shrink-0 mt-0.5" />
-                    <div>
-                      <span className="font-semibold text-amber-300">Gateway Status: Not Configured.</span> Cashfree production API credentials must be configured in environment variables (CASHFREE_APP_ID, CASHFREE_SECRET_KEY).
-                    </div>
+              <form onSubmit={handleSubmitBooking} className="space-y-5">
+                {/* Official Bank Banner */}
+                <div className="p-3.5 bg-emerald-500/10 border border-emerald-500/30 rounded-lg flex items-start gap-3 text-xs text-white/90">
+                  <ShieldCheck size={18} className="text-emerald-400 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-semibold text-white">Direct Official Retainer:</span> Payments credit instantly to Kotak Mahindra Bank under beneficiary <strong>{STUDIO_PAYMENT_CONFIG.bankDetails.accountName}</strong>.
                   </div>
-                ) : (
-                  <div className="p-3.5 bg-white/5 border border-white/10 rounded-lg flex items-start gap-3 text-xs text-white/80">
-                    <Lock size={16} className="text-emerald-400 shrink-0 mt-0.5" />
-                    <div>
-                      <span className="font-semibold text-white">Live Payment Verification:</span> This link processes a real ₹{amount} INR advance transaction directly through Cashfree Production into your merchant account.
-                    </div>
+                </div>
+
+                {/* QR Code & UPI Details */}
+                <div className="bg-black/60 border border-white/10 p-5 rounded-lg text-center space-y-4">
+                  <div className="inline-block p-2 bg-white rounded-lg shadow-xl">
+                    <img 
+                      src={qrCodeUrl} 
+                      alt="Kotak Bank UPI QR" 
+                      className="w-40 h-40 object-contain mx-auto"
+                    />
                   </div>
-                )}
+
+                  <div className="flex items-center justify-center gap-2">
+                    <span className="font-mono text-sm font-bold text-emerald-400">
+                      {STUDIO_PAYMENT_CONFIG.upiId}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleCopyUpi}
+                      className="p-1.5 bg-white/10 hover:bg-white/20 text-white rounded transition-colors"
+                      title="Copy UPI ID"
+                    >
+                      {copiedUpi ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-[11px] font-mono text-white/70 text-left bg-black/40 p-2.5 rounded border border-white/5">
+                    <div>Bank: <span className="text-white font-bold">{STUDIO_PAYMENT_CONFIG.bankDetails.bankName}</span></div>
+                    <div>IFSC: <span className="text-white font-bold">{STUDIO_PAYMENT_CONFIG.bankDetails.ifscCode}</span></div>
+                    <div>Account: <span className="text-white font-bold">{STUDIO_PAYMENT_CONFIG.bankDetails.accountNumber}</span></div>
+                    <div>A/C Name: <span className="text-white font-bold">{STUDIO_PAYMENT_CONFIG.bankDetails.accountName}</span></div>
+                  </div>
+
+                  <a
+                    href={upiIntentUrl}
+                    className="w-full py-2.5 px-4 bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs uppercase tracking-wider rounded transition-all flex items-center justify-center gap-2"
+                  >
+                    <ExternalLink size={14} />
+                    <span>Pay ₹{amount} via UPI App (GPay/PhonePe/Paytm)</span>
+                  </a>
+                </div>
 
                 {/* Error Banner */}
                 {errorMessage && (
@@ -311,7 +260,7 @@ export default function TestPaymentPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs uppercase font-mono tracking-wider text-white/60 mb-1">
-                        Phone (UPI / SMS)
+                        Phone (UPI / WhatsApp)
                       </label>
                       <div className="relative">
                         <Phone size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40" />
@@ -328,7 +277,7 @@ export default function TestPaymentPage() {
 
                     <div>
                       <label className="block text-xs uppercase font-mono tracking-wider text-white/60 mb-1">
-                        Email (Receipt)
+                        Email (Receipt Delivery)
                       </label>
                       <div className="relative">
                         <Mail size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40" />
@@ -342,58 +291,38 @@ export default function TestPaymentPage() {
                       </div>
                     </div>
                   </div>
+
+                  <div>
+                    <label className="block text-xs uppercase font-mono tracking-wider text-white/60 mb-1">
+                      Bank UTR / Transaction Reference Number
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={utrNumber}
+                      onChange={(e) => setUtrNumber(e.target.value)}
+                      placeholder="12-digit UPI reference number from your receipt"
+                      className="w-full bg-black/60 border border-white/20 rounded-md py-2.5 px-3 text-sm text-white focus:outline-none focus:border-emerald-500 font-mono transition-colors"
+                    />
+                  </div>
                 </div>
 
-                {/* Payment Methods Supported */}
-                <div className="pt-2 border-t border-white/10">
-                  <div className="flex items-center justify-between text-[11px] text-white/50 mb-2">
-                    <span>Supported Payment Channels:</span>
-                    <span className="text-emerald-400 font-mono">Zero Platform Fee</span>
-                  </div>
-                  <div className="flex flex-wrap gap-2 text-[11px] font-mono text-white/70">
-                    <span className="px-2.5 py-1 bg-black/40 border border-white/10 rounded">GPay / PhonePe / Paytm</span>
-                    <span className="px-2.5 py-1 bg-black/40 border border-white/10 rounded">UPI QR</span>
-                    <span className="px-2.5 py-1 bg-black/40 border border-white/10 rounded">Cards (Visa/Mastercard)</span>
-                    <span className="px-2.5 py-1 bg-black/40 border border-white/10 rounded">NetBanking</span>
-                  </div>
-                </div>
-
-                {/* Primary Action Buttons */}
+                {/* Primary Action Button */}
                 <div className="space-y-2.5 pt-2">
                   <button
-                    type="button"
+                    type="submit"
                     disabled={isLoading}
-                    onClick={() => { setCheckoutMode('_modal'); handlePay('_modal'); }}
                     className="w-full py-3.5 px-4 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-black font-bold text-sm uppercase tracking-wider rounded-lg transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 cursor-pointer"
                   >
                     {isLoading ? (
                       <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
                     ) : (
                       <>
-                        <CreditCard size={17} />
-                        <span>Pay ₹{amount} (Instant Modal)</span>
+                        <CheckCircle2 size={17} />
+                        <span>Confirm Retainer Payment (₹{amount})</span>
                       </>
                     )}
                   </button>
-
-                  {gatewayConfigured !== false && (
-                    <button
-                      type="button"
-                      disabled={isLoading}
-                      onClick={() => { setCheckoutMode('_self'); handlePay('_self'); }}
-                      className="w-full py-3 px-4 bg-white/5 hover:bg-white/10 border border-white/15 text-white text-xs font-semibold uppercase tracking-wider rounded-lg transition-all flex items-center justify-center gap-2 cursor-pointer"
-                      title="Recommended if opening from a mobile browser to directly open UPI apps"
-                    >
-                      <ExternalLink size={14} className="text-white/60" />
-                      <span>Pay ₹{amount} via Full Page Redirect (Best for Mobile UPI)</span>
-                    </button>
-                  )}
-                </div>
-
-                <div className="text-center">
-                  <p className="text-[10px] text-white/40 tracking-wider">
-                    Secured by Cashfree 256-bit SSL encryption. Funds settle to Aman Visual.
-                  </p>
                 </div>
               </form>
             ) : (
@@ -405,25 +334,29 @@ export default function TestPaymentPage() {
 
                 <div>
                   <h3 className="text-2xl font-display font-bold text-white uppercase tracking-tight">
-                    Payment Successful!
+                    Retainer Submitted!
                   </h3>
                   <p className="text-xs text-white/60 mt-1">
-                    Your advance payment has been confirmed by Cashfree.
+                    Your direct payment details have been logged and submitted for instant verification.
                   </p>
                 </div>
 
                 <div className="bg-black/60 border border-white/15 rounded-lg p-5 text-left text-xs space-y-2.5 font-mono">
                   <div className="flex justify-between border-b border-white/10 pb-2">
-                    <span className="text-white/50">Amount Paid:</span>
+                    <span className="text-white/50">Amount:</span>
                     <span className="text-emerald-400 font-bold text-sm">₹{confirmedPayment.amount.toLocaleString('en-IN')}</span>
                   </div>
                   <div className="flex justify-between border-b border-white/10 pb-2">
-                    <span className="text-white/50">Order ID:</span>
+                    <span className="text-white/50">Booking Ref:</span>
                     <span className="text-white select-all">{confirmedPayment.orderId}</span>
                   </div>
                   <div className="flex justify-between border-b border-white/10 pb-2">
-                    <span className="text-white/50">Payment Gateway:</span>
-                    <span className="text-white">Cashfree Production</span>
+                    <span className="text-white/50">UTR Number:</span>
+                    <span className="text-white select-all">{confirmedPayment.utr}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-white/10 pb-2">
+                    <span className="text-white/50">Payment Method:</span>
+                    <span className="text-white">{confirmedPayment.paymentMode}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-white/50">Timestamp:</span>
@@ -434,7 +367,7 @@ export default function TestPaymentPage() {
                 <div className="space-y-3 pt-2">
                   <a
                     href={`https://wa.me/918827474622?text=${encodeURIComponent(
-                      `Hello Aman Visual Team,\n\nI have completed the test payment of ₹${confirmedPayment.amount}.\nOrder ID: ${confirmedPayment.orderId}\n\nPlease confirm the receipt. Thank you!`
+                      `Hello Aman Visual Team,\n\nI have completed the test payment of ₹${confirmedPayment.amount}.\nBooking Ref: ${confirmedPayment.orderId}\nUTR: ${confirmedPayment.utr}\n\nPlease confirm the receipt. Thank you!`
                     )}`}
                     target="_blank"
                     rel="noopener noreferrer"

@@ -119,10 +119,6 @@ async function startServer() {
   app.post('/api/admin/secrets', requireOwner, (req, res) => {
     try {
       const {
-        cashfreeAppId,
-        cashfreeSecretKey,
-        cashfreeMode,
-        cashfreePaymentLink,
         smtpUser,
         smtpPass,
         smtpHost,
@@ -135,18 +131,6 @@ async function startServer() {
       } = req.body || {};
 
       const updates: any = {};
-      if (typeof cashfreeAppId === 'string' && cashfreeAppId.trim()) {
-        updates.CASHFREE_APP_ID = cashfreeAppId.trim();
-      }
-      if (typeof cashfreeSecretKey === 'string' && cashfreeSecretKey.trim()) {
-        updates.CASHFREE_SECRET_KEY = cashfreeSecretKey.trim();
-      }
-      if (cashfreeMode === 'production' || cashfreeMode === 'sandbox') {
-        updates.CASHFREE_MODE = cashfreeMode;
-      }
-      if (typeof cashfreePaymentLink === 'string') {
-        updates.CASHFREE_PAYMENT_LINK = cashfreePaymentLink.trim();
-      }
       if (typeof smtpUser === 'string' && smtpUser.trim()) {
         updates.SMTP_USER = smtpUser.trim();
       }
@@ -185,45 +169,6 @@ async function startServer() {
     } catch (err: any) {
       console.error('Failed to save secrets:', err);
       return res.status(500).json({ success: false, error: err.message || 'Failed to save secrets' });
-    }
-  });
-
-  // Verify Cashfree credentials with live test ping
-  app.post('/api/admin/test-cashfree', requireOwner, async (req, res) => {
-    const appId = process.env.CASHFREE_APP_ID?.trim();
-    const secretKey = process.env.CASHFREE_SECRET_KEY?.trim();
-    if (!appId || !secretKey) {
-      return res.status(400).json({
-        success: false,
-        error: 'Cashfree App ID and Secret Key must both be saved before testing.'
-      });
-    }
-    const isProd = process.env.CASHFREE_MODE === 'production' || secretKey.startsWith('cfsk_ma_prod_');
-    const cashfreeBaseUrl = isProd ? 'https://api.cashfree.com/pg' : 'https://sandbox.cashfree.com/pg';
-    try {
-      const resp = await fetch(`${cashfreeBaseUrl}/orders/AV_PING_VERIFY`, {
-        method: 'GET',
-        headers: {
-          'x-client-id': appId,
-          'x-client-secret': secretKey,
-          'x-api-version': '2023-08-01',
-          'Accept': 'application/json'
-        }
-      });
-      const data: any = await resp.json().catch(() => ({}));
-      if (resp.status === 401 || (data && data.type === 'authentication_error')) {
-        return res.status(401).json({
-          success: false,
-          error: data.message || 'Authentication failed: Check your Cashfree App ID and Secret Key.'
-        });
-      }
-      return res.json({
-        success: true,
-        mode: isProd ? 'production' : 'sandbox',
-        message: `Cashfree credentials successfully verified in ${isProd ? 'PRODUCTION' : 'SANDBOX'} mode.`
-      });
-    } catch (err: any) {
-      return res.status(500).json({ success: false, error: err.message || 'Could not connect to Cashfree API.' });
     }
   });
 
@@ -521,31 +466,33 @@ async function startServer() {
   });
 
   // ==========================================
-  // CASHFREE PRODUCTION PAYMENT GATEWAY & BOOKINGS
+  // AMAN VISUAL STUDIO - DIRECT BOOKING & PAYMENTS
+  // Direct Kotak Mahindra Bank UPI & Account Transfer
   // ==========================================
 
-  // Check Cashfree Configuration Status
-  app.get('/api/cashfree/config', (req, res) => {
-    const isConfigured = Boolean(process.env.CASHFREE_APP_ID && process.env.CASHFREE_SECRET_KEY);
-    const isProd = process.env.CASHFREE_MODE === 'production' || Boolean(process.env.CASHFREE_SECRET_KEY?.startsWith('cfsk_ma_prod_'));
-    const mode = isProd ? 'production' : 'sandbox';
-    let directPaymentLink = (process.env.CASHFREE_PAYMENT_LINK || '').trim();
-    if (directPaymentLink.includes('yb26am38h5e0')) {
-      directPaymentLink = '';
-    }
+  // Studio Payment & Booking Config
+  app.get(["/api/bookings/config", "/api/cashfree/config"], (req, res) => {
     return res.json({
       success: true,
-      isConfigured,
-      mode,
-      studioName: 'Aman Visual',
-      currency: 'INR',
-      directPaymentLink,
-      supportedMethods: ['UPI (GPay, PhonePe, Paytm)', 'Cards', 'NetBanking', 'Wallets']
+      isConfigured: true,
+      mode: "direct_upi",
+      studioName: "Aman Visual",
+      currency: "INR",
+      directPaymentLink: "",
+      bankDetails: {
+        bankName: "Kotak Mahindra Bank",
+        accountName: "Aman Tiwari",
+        accountNumber: "1645939816",
+        ifscCode: "KKBK0000133",
+        upiId: "8827474622@ybl",
+        phone: "+918827474622"
+      },
+      supportedMethods: ["Kotak Bank UPI QR", "Google Pay", "PhonePe", "Paytm", "IMPS / NEFT"]
     });
   });
 
   // Get all bookings (internal studio tracking - owner only)
-  app.get('/api/cashfree/bookings', requireOwner, (req, res) => {
+  app.get(["/api/bookings", "/api/cashfree/bookings"], requireOwner, (req, res) => {
     const list = getAllBookings();
     return res.json({
       success: true,
@@ -554,361 +501,44 @@ async function startServer() {
     });
   });
 
-  // Create Real Cashfree Order for Advance Booking
-  app.post('/api/cashfree/create-order', async (req, res) => {
+  // Verify Booking / Receipt
+  const handleVerifyBooking = async (req: any, res: any) => {
     try {
-      const {
-        amount,
-        customerName,
-        customerEmail,
-        customerPhone,
-        serviceTitle,
-        eventDate,
-        eventVenue,
-        customNotes
-      } = req.body || {};
-
-      const numAmount = Number(amount);
-      if (!Number.isFinite(numAmount) || numAmount < 1 || numAmount > 10000000) {
-        return res.status(400).json({ success: false, error: 'Invalid booking advance amount.' });
-      }
-
-      if (!customerName || typeof customerName !== 'string' || customerName.trim().length === 0) {
-        return res.status(400).json({ success: false, error: 'Please provide customer full name.' });
-      }
-
-      // Format Indian phone number (10 digits)
-      const rawPhone = String(customerPhone || '').replace(/\D/g, '');
-      if (rawPhone.length !== 10) {
-        return res.status(400).json({ success: false, error: 'Enter a valid 10-digit Indian phone number.' });
-      }
-      const formattedPhone = rawPhone;
-
-      if (typeof customerEmail !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail.trim())) {
-        return res.status(400).json({ success: false, error: 'Enter a valid customer email address.' });
-      }
-      const cleanEmail = customerEmail.trim().toLowerCase();
-
-      const appId = process.env.CASHFREE_APP_ID?.trim();
-      const secretKey = process.env.CASHFREE_SECRET_KEY?.trim();
-
-      // Production requirement: Cashfree credentials must be configured on the server
-      if (!appId || !secretKey) {
-        return res.status(503).json({
-          success: false,
-          error: 'Cashfree payment gateway credentials are not configured on the server. Please complete your advance using Direct UPI / QR or contact Aman Visual on WhatsApp.'
-        });
-      }
-
-      const isProd = process.env.CASHFREE_MODE === 'production' || secretKey.startsWith('cfsk_ma_prod_');
-      const cashfreeBaseUrl = isProd 
-        ? 'https://api.cashfree.com/pg' 
-        : 'https://sandbox.cashfree.com/pg';
-
-      // Generate unique Order ID
-      const timestamp = Date.now().toString(36).toUpperCase();
-      const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
-      const orderId = `AV_CF_${timestamp}_${randomSuffix}`;
-
-      const hostOrigin = (typeof req.headers.origin === 'string' && req.headers.origin.startsWith('http'))
-        ? req.headers.origin
-        : (req.headers.host ? `https://${req.headers.host}` : null);
-      const appBaseUrl = (hostOrigin || process.env.APP_URL || 'https://amanvisual.in').replace(/\/+$/, '');
-      const returnUrl = (typeof req.body?.returnUrl === 'string' && req.body.returnUrl.startsWith('http'))
-        ? req.body.returnUrl
-        : `${appBaseUrl}/pricing?order_id={order_id}&status=success`;
-      const notifyUrl = `${appBaseUrl}/api/cashfree/webhook`;
-
-      // Safe customer name (min 3 chars for Cashfree API)
-      const safeCustomerName = customerName.trim().length >= 3 
-        ? customerName.trim() 
-        : `${customerName.trim()} Client`;
-
-      const cfPayload = {
-        order_id: orderId,
-        order_amount: numAmount,
-        order_currency: 'INR',
-        customer_details: {
-          customer_id: `cust_${formattedPhone}`,
-          customer_name: safeCustomerName,
-          customer_email: cleanEmail,
-          customer_phone: formattedPhone
-        },
-        order_meta: {
-          return_url: returnUrl,
-          notify_url: notifyUrl
-        },
-        order_note: `Aman Visual: ${serviceTitle || 'Production'} (${eventDate || 'Scheduled'})`
-      };
-
-      const response = await fetch(`${cashfreeBaseUrl}/orders`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-version': '2023-08-01',
-          'x-client-id': appId,
-          'x-client-secret': secretKey
-        },
-        body: JSON.stringify(cfPayload)
-      });
-
-      const data = await response.json() as Record<string, any>;
-
-      if (!response.ok) {
-        console.error('[Cashfree API Error Response]', data);
-        const cfErrorMsg = typeof data.message === 'string'
-          ? data.message
-          : typeof data.error === 'string'
-            ? data.error
-            : (data.error as any)?.message || 'Cashfree payment gateway rejected the order request.';
-
-        return res.status(response.status).json({
-          success: false,
-          error: cfErrorMsg,
-          details: data
-        });
-      }
-
-      // Record in persistent production database
-      const newBooking: PersistentBooking = {
-        orderId,
-        cfOrderId: String(data.cf_order_id || ''),
-        customerName: customerName.trim(),
-        customerEmail: cleanEmail,
-        customerPhone: formattedPhone,
-        amount: numAmount,
-        serviceTitle: serviceTitle || 'Studio Production',
-        eventDate,
-        eventVenue,
-        customNotes,
-        status: 'PENDING',
-        paymentMode: 'Cashfree',
-        paymentSessionId: String(data.payment_session_id || ''),
-        createdAt: new Date().toISOString(),
-        clientIp: req.ip,
-        userAgent: req.headers['user-agent']
-      };
-
-      saveBooking(newBooking);
-      console.log(`[Cashfree Order Created] ID: ${orderId} | Session: ${data.payment_session_id} | Amount: ₹${numAmount}`);
-
-      return res.status(201).json({
-        success: true,
-        orderId,
-        cfOrderId: data.cf_order_id,
-        paymentSessionId: data.payment_session_id,
-        amount: numAmount,
-        currency: 'INR',
-        mode: isProd ? 'production' : 'sandbox',
-        message: 'Cashfree real payment order generated successfully.'
-      });
-    } catch (apiErr: any) {
-      console.error('[Cashfree Network/Execution Error]', apiErr);
-      return res.status(502).json({
-        success: false,
-        error: 'Failed to communicate with Cashfree servers: ' + (apiErr.message || apiErr)
-      });
-    }
-  });
-
-  // Verify transaction with Cashfree before confirming booking or issuing receipt
-  app.post('/api/cashfree/verify-order', async (req, res) => {
-    try {
-      const orderId = typeof req.body?.orderId === 'string' ? req.body.orderId.trim() : '';
-      if (!/^AV_CF_[A-Z0-9_]+$/.test(orderId)) {
-        return res.status(400).json({ success: false, error: 'Invalid order ID format.' });
-      }
-
-      const appId = process.env.CASHFREE_APP_ID?.trim();
-      const secretKey = process.env.CASHFREE_SECRET_KEY?.trim();
-
-      if (!appId || !secretKey) {
-        return res.status(503).json({
-          success: false,
-          error: 'Cashfree payment gateway credentials are not configured on the server. Cannot verify online payment.'
-        });
-      }
-
-      const isProd = process.env.CASHFREE_MODE === 'production' || secretKey.startsWith('cfsk_ma_prod_');
-      const base = isProd ? 'https://api.cashfree.com/pg' : 'https://sandbox.cashfree.com/pg';
-      const headers = {
-        'x-api-version': '2023-08-01',
-        'x-client-id': appId,
-        'x-client-secret': secretKey
-      };
-
-      // 1. Fetch order details from Cashfree
-      const orderResponse = await fetch(`${base}/orders/${encodeURIComponent(orderId)}`, { headers });
-      if (!orderResponse.ok) {
-        return res.status(502).json({ success: false, error: 'Could not retrieve order details from Cashfree.' });
-      }
-      const order = await orderResponse.json() as Record<string, any>;
-
-      if (order.order_status !== 'PAID') {
-        return res.json({
-          success: false,
-          status: order.order_status || 'PENDING',
-          orderId,
-          error: `Payment verification pending. Order status on Cashfree is: ${order.order_status || 'PENDING'}`
-        });
-      }
-
-      // 2. Fetch payments from Cashfree to verify transaction status
-      const paymentsResponse = await fetch(`${base}/orders/${encodeURIComponent(orderId)}/payments`, { headers });
-      if (!paymentsResponse.ok) {
-        return res.status(502).json({ success: false, error: 'Could not verify payment transactions with Cashfree.' });
-      }
-      const payments = await paymentsResponse.json() as Array<Record<string, any>>;
-      const payment = Array.isArray(payments)
-        ? payments.find(p => p.payment_status === 'SUCCESS' && p.order_id === orderId)
-        : null;
-
-      if (!payment) {
-        return res.status(409).json({
-          success: false,
-          status: 'PENDING',
-          error: 'No successful payment transaction found for this order on Cashfree.'
-        });
-      }
-
+      const orderId = typeof req.body?.orderId === "string" ? req.body.orderId.trim() : "";
       const existingBooking = getBookingByOrderId(orderId);
-      const wasAlreadyPaid = existingBooking?.status === 'PAID';
-
-      const paidAt = payment.payment_completion_time || new Date().toISOString();
-      const updated = updateBooking(orderId, {
-        status: 'PAID',
-        paidAt,
-        paymentMode: 'Cashfree',
-        cfPaymentId: String(payment.cf_payment_id || ''),
-        bankReference: String(payment.bank_reference || ''),
-        receiptNumber: `AV-REC-${orderId}`
-      }) || existingBooking;
-
-      // Send email notification if not previously sent
-      if (!wasAlreadyPaid && updated) {
-        sendBookingNotificationEmail({
-          orderId: updated.orderId,
-          cfPaymentId: updated.cfPaymentId,
-          bankReference: updated.bankReference,
-          customerName: updated.customerName,
-          customerEmail: updated.customerEmail,
-          customerPhone: updated.customerPhone,
-          amount: updated.amount,
-          serviceTitle: updated.serviceTitle,
-          eventDate: updated.eventDate,
-          eventVenue: updated.eventVenue,
-          status: 'PAID',
-          paymentMode: 'Cashfree',
-          receiptNumber: updated.receiptNumber
-        }).catch(err => console.error('[Booking Email Error]', err));
+      if (!existingBooking) {
+        return res.status(404).json({ success: false, error: "Booking not found." });
       }
-
       return res.json({
         success: true,
-        status: 'PAID',
-        orderId,
-        amount: payment.payment_amount || updated?.amount,
+        status: existingBooking.status,
+        orderId: existingBooking.orderId,
+        amount: existingBooking.amount,
+        receiptNumber: existingBooking.receiptNumber || ("AV-REC-" + existingBooking.orderId),
+        customerName: existingBooking.customerName,
+        paymentMode: existingBooking.paymentMode,
         receipt: {
-          receiptNumber: `AV-REC-${orderId}`,
-          cfPaymentId: String(payment.cf_payment_id || ''),
-          utr: String(payment.bank_reference || ''),
-          paidAt,
-          paymentMode: payment.payment_group || 'Cashfree',
-          orderId,
-          amount: payment.payment_amount || updated?.amount,
-          customerName: updated?.customerName || order.customer_details?.customer_name || 'Client',
-          serviceTitle: updated?.serviceTitle || 'Production Retainer',
-          eventDate: updated?.eventDate,
-          eventVenue: updated?.eventVenue
+          receiptNumber: existingBooking.receiptNumber || ("AV-REC-" + existingBooking.orderId),
+          status: existingBooking.status,
+          utr: existingBooking.bankReference || "Confirmed",
+          amount: existingBooking.amount,
+          customerName: existingBooking.customerName,
+          serviceTitle: existingBooking.serviceTitle,
+          eventDate: existingBooking.eventDate,
+          eventVenue: existingBooking.eventVenue,
+          paymentMode: existingBooking.paymentMode,
+          paidAt: existingBooking.paidAt || existingBooking.createdAt,
+          createdAt: existingBooking.createdAt
         },
-        booking: updated
+        booking: existingBooking
       });
-    } catch (error: any) {
-      console.error('Cashfree verification failed:', error);
-      return res.status(502).json({
-        success: false,
-        error: 'Could not contact Cashfree servers to verify payment: ' + (error.message || error)
-      });
-    }
-  });
-
-  // Cashfree Webhook Handler with Cryptographic Signature Verification
-  app.post('/api/cashfree/webhook', async (req, res) => {
-    try {
-      const rawBody = (req as any).rawBody || JSON.stringify(req.body);
-      const signature = (req.headers['x-webhook-signature'] || req.headers['x-cf-signature']) as string | undefined;
-      const timestamp = req.headers['x-webhook-timestamp'] as string | undefined;
-      const secretKey = process.env.CASHFREE_SECRET_KEY?.trim();
-
-      if (!secretKey) {
-        console.warn('[Cashfree Webhook] CASHFREE_SECRET_KEY not set on server. Rejecting.');
-        return res.status(503).json({ success: false, error: 'Server payment secret not set' });
-      }
-
-      if (!signature || !timestamp) {
-        console.warn('[Cashfree Webhook] Missing signature or timestamp headers');
-        return res.status(400).json({ success: false, error: 'Missing webhook signature headers' });
-      }
-
-      // Verify HMAC-SHA256 signature
-      const expectedSignature = createHmac('sha256', secretKey)
-        .update(timestamp + rawBody)
-        .digest('base64');
-
-      const sigBuf = Buffer.from(signature);
-      const expBuf = Buffer.from(expectedSignature);
-
-      if (sigBuf.length !== expBuf.length || !timingSafeEqual(sigBuf, expBuf)) {
-        console.error('[Cashfree Webhook] Invalid signature mismatch');
-        return res.status(401).json({ success: false, error: 'Invalid webhook signature' });
-      }
-
-      const payload = req.body || {};
-      const eventType = payload.type || payload.event || '';
-      const orderData = payload.data?.order || payload.order || {};
-      const paymentData = payload.data?.payment || payload.payment || {};
-      const orderId = orderData.order_id || payload.data?.order_id || payload.order_id;
-
-      console.log(`[Cashfree Webhook Verified] Event: ${eventType} | Order: ${orderId}`);
-
-      if (orderId && (eventType.includes('SUCCESS') || eventType.includes('PAID') || paymentData.payment_status === 'SUCCESS')) {
-        const existing = getBookingByOrderId(orderId);
-        const wasPaid = existing?.status === 'PAID';
-
-        const updated = updateBooking(orderId, {
-          status: 'PAID',
-          paidAt: paymentData.payment_completion_time || new Date().toISOString(),
-          paymentMode: 'Cashfree',
-          cfPaymentId: String(paymentData.cf_payment_id || ''),
-          bankReference: String(paymentData.bank_reference || ''),
-          receiptNumber: `AV-REC-${orderId}`
-        }) || existing;
-
-        if (!wasPaid && updated) {
-          sendBookingNotificationEmail({
-            orderId: updated.orderId,
-            cfPaymentId: updated.cfPaymentId,
-            bankReference: updated.bankReference,
-            customerName: updated.customerName,
-            customerEmail: updated.customerEmail,
-            customerPhone: updated.customerPhone,
-            amount: updated.amount,
-            serviceTitle: updated.serviceTitle,
-            eventDate: updated.eventDate,
-            eventVenue: updated.eventVenue,
-            status: 'PAID',
-            paymentMode: 'Cashfree',
-            receiptNumber: updated.receiptNumber
-          }).catch(err => console.error('[Webhook Booking Email Error]', err));
-        }
-      }
-
-      return res.status(200).json({ success: true, message: 'Webhook processed successfully' });
     } catch (err: any) {
-      console.error('[Cashfree Webhook Exception]', err);
-      return res.status(500).json({ success: false, error: 'Internal server error processing webhook' });
+      return res.status(500).json({ success: false, error: "Could not verify booking." });
     }
-  });
+  };
+
+  app.post("/api/bookings/verify-order", handleVerifyBooking);
+  app.post("/api/cashfree/verify-order", handleVerifyBooking);
 
   // Direct UPI / Kotak QR Transfer Submission (Stays pending until manually verified by owner)
   app.post('/api/cashfree/direct-upi', async (req, res) => {
