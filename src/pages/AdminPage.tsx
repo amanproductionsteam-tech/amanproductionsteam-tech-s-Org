@@ -120,7 +120,9 @@ export default function AdminPage() {
   const [formSmtpSecure, setFormSmtpSecure] = useState('true');
   const [formSenderEmail, setFormSenderEmail] = useState('"Aman Visual" <amanproductionsteam@gmail.com>');
   const [formAdminPassword, setFormAdminPassword] = useState('');
+  const [formResendApiKey, setFormResendApiKey] = useState('');
   const [showSmtpPassInput, setShowSmtpPassInput] = useState(false);
+  const [showResendKeyInput, setShowResendKeyInput] = useState(false);
   const [showAdminPassInput, setShowAdminPassInput] = useState(false);
 
   // Testing status
@@ -182,6 +184,7 @@ export default function AdminPage() {
       if (formSmtpUser.trim()) payload.smtpUser = formSmtpUser.trim();
       if (formSmtpPass.trim()) payload.smtpPass = formSmtpPass.trim();
       if (formAdminPassword.trim()) payload.adminPassword = formAdminPassword.trim();
+      if (formResendApiKey.trim()) payload.resendApiKey = formResendApiKey.trim();
 
       const res = await fetch('/api/admin/secrets', {
         method: 'POST',
@@ -198,6 +201,7 @@ export default function AdminPage() {
       }
       setFormSmtpPass('');
       setFormAdminPassword('');
+      setFormResendApiKey('');
     } catch (err: any) {
       setSaveErrorMsg(err.message || 'Error saving secrets.');
     } finally {
@@ -1410,6 +1414,42 @@ export default function AdminPage() {
                   <option value="false">STARTTLS (Port 587)</option>
                 </select>
                 <p className="text-[11px] text-white/40 mt-1">Standard for Gmail: Secure (465)</p>
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-white/5 space-y-3">
+              <div>
+                <label className="block text-xs font-mono uppercase text-white/70 mb-1.5 flex items-center justify-between">
+                  <span>Resend.com API Key (Optional Alternative / Backup Provider)</span>
+                  {secretsData?.email?.hasResendKey && (
+                    <span className="text-[10px] text-emerald-400 font-mono">
+                      (Configured: {secretsData.email.resendKeyMasked})
+                    </span>
+                  )}
+                </label>
+                <div className="relative">
+                  <input
+                    type={showResendKeyInput ? 'text' : 'password'}
+                    value={formResendApiKey}
+                    onChange={(e) => setFormResendApiKey(e.target.value)}
+                    placeholder={
+                      secretsData?.email?.hasResendKey
+                        ? 'Leave empty to keep existing Resend key, or paste new key'
+                        : 're_123456789...'
+                    }
+                    className="w-full bg-black/60 border border-white/15 px-3 py-2 pr-10 text-xs text-white placeholder-white/30 focus:outline-none focus:border-emerald-500 font-mono"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowResendKeyInput(!showResendKeyInput)}
+                    className="absolute right-2.5 top-2.5 text-white/40 hover:text-white"
+                  >
+                    {showResendKeyInput ? <EyeOff size={14} /> : <Eye size={14} />}
+                  </button>
+                </div>
+                <p className="text-[11px] text-white/40 mt-1">
+                  Optional: If you prefer Resend API over Gmail SMTP, get an API key at <strong>resend.com</strong> and paste it here.
+                </p>
               </div>
             </div>
 
