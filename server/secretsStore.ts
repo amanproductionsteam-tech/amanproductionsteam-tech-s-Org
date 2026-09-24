@@ -11,6 +11,9 @@ export interface ServerSecrets {
   SENDER_EMAIL?: string;
   RESEND_API_KEY?: string;
   ADMIN_PASSWORD?: string;
+  META_WHATSAPP_TOKEN?: string;
+  META_WHATSAPP_PHONE_NUMBER_ID?: string;
+  META_WHATSAPP_ADMIN_PHONE?: string;
 }
 
 const DATA_DIR = path.join(process.cwd(), 'data');
@@ -111,6 +114,9 @@ export function getMaskedSecrets() {
   const smtpPort = process.env.SMTP_PORT?.trim() || '465';
   const adminPass = process.env.ADMIN_PASSWORD?.trim() || '';
   const resendKey = process.env.RESEND_API_KEY?.trim() || '';
+  const metaToken = process.env.META_WHATSAPP_TOKEN?.trim() || '';
+  const metaPhoneId = process.env.META_WHATSAPP_PHONE_NUMBER_ID?.trim() || '';
+  const metaAdminPhone = process.env.META_WHATSAPP_ADMIN_PHONE?.trim() || '918827474622';
 
   return {
     email: {
@@ -125,6 +131,13 @@ export function getMaskedSecrets() {
       senderEmail: process.env.SENDER_EMAIL || `"Aman Visual" <${smtpUser}>`,
       hasResendKey: Boolean(resendKey),
       resendKeyMasked: resendKey ? maskSecret(resendKey, 4) : '',
+    },
+    whatsapp: {
+      isConfigured: Boolean(metaToken && metaPhoneId),
+      hasToken: Boolean(metaToken),
+      tokenMasked: metaToken ? maskSecret(metaToken, 5) : '',
+      phoneNumberId: metaPhoneId,
+      adminPhone: metaAdminPhone
     },
     security: {
       hasCustomAdminPassword: Boolean(adminPass && adminPass !== '8827474622'),

@@ -99,6 +99,13 @@ export default function AdminPage() {
       hasResendKey: boolean;
       resendKeyMasked: string;
     };
+    whatsapp?: {
+      isConfigured: boolean;
+      hasToken: boolean;
+      tokenMasked: string;
+      phoneNumberId: string;
+      adminPhone: string;
+    };
     security: {
       hasCustomAdminPassword: boolean;
       adminPasswordMasked: string;
@@ -121,13 +128,19 @@ export default function AdminPage() {
   const [formSenderEmail, setFormSenderEmail] = useState('"Aman Visual" <amanproductionsteam@gmail.com>');
   const [formAdminPassword, setFormAdminPassword] = useState('');
   const [formResendApiKey, setFormResendApiKey] = useState('');
+  const [formMetaWhatsappToken, setFormMetaWhatsappToken] = useState('');
+  const [formMetaWhatsappPhoneId, setFormMetaWhatsappPhoneId] = useState('');
+  const [formMetaWhatsappAdminPhone, setFormMetaWhatsappAdminPhone] = useState('918827474622');
   const [showSmtpPassInput, setShowSmtpPassInput] = useState(false);
   const [showResendKeyInput, setShowResendKeyInput] = useState(false);
   const [showAdminPassInput, setShowAdminPassInput] = useState(false);
+  const [showMetaTokenInput, setShowMetaTokenInput] = useState(false);
 
   // Testing status
   const [testingEmail, setTestingEmail] = useState(false);
   const [testEmailResult, setTestEmailResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [testingWhatsApp, setTestingWhatsApp] = useState(false);
+  const [testWhatsAppResult, setTestWhatsAppResult] = useState<{ success: boolean; message: string } | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -159,6 +172,12 @@ export default function AdminPage() {
           if (data.secrets.email?.senderEmail) {
             setFormSenderEmail(data.secrets.email.senderEmail);
           }
+          if (data.secrets.whatsapp?.phoneNumberId) {
+            setFormMetaWhatsappPhoneId(data.secrets.whatsapp.phoneNumberId);
+          }
+          if (data.secrets.whatsapp?.adminPhone) {
+            setFormMetaWhatsappAdminPhone(data.secrets.whatsapp.adminPhone);
+          }
         }
       }
     } catch (err) {
@@ -185,6 +204,9 @@ export default function AdminPage() {
       if (formSmtpPass.trim()) payload.smtpPass = formSmtpPass.trim();
       if (formAdminPassword.trim()) payload.adminPassword = formAdminPassword.trim();
       if (formResendApiKey.trim()) payload.resendApiKey = formResendApiKey.trim();
+      if (formMetaWhatsappToken.trim()) payload.metaWhatsappToken = formMetaWhatsappToken.trim();
+      if (formMetaWhatsappPhoneId.trim()) payload.metaWhatsappPhoneId = formMetaWhatsappPhoneId.trim();
+      if (formMetaWhatsappAdminPhone.trim()) payload.metaWhatsappAdminPhone = formMetaWhatsappAdminPhone.trim();
 
       const res = await fetch('/api/admin/secrets', {
         method: 'POST',
@@ -202,10 +224,37 @@ export default function AdminPage() {
       setFormSmtpPass('');
       setFormAdminPassword('');
       setFormResendApiKey('');
+      setFormMetaWhatsappToken('');
     } catch (err: any) {
       setSaveErrorMsg(err.message || 'Error saving secrets.');
     } finally {
       setSavingSecrets(false);
+    }
+  };
+
+  const handleTestWhatsApp = async () => {
+    setTestingWhatsApp(true);
+    setTestWhatsAppResult(null);
+    try {
+      const res = await fetch('/api/admin/test-whatsapp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          targetPhone: formMetaWhatsappAdminPhone.trim() || undefined
+        })
+      });
+      const data = await res.json();
+      setTestWhatsAppResult({
+        success: Boolean(res.ok && data.success),
+        message: data.message || data.error || 'WhatsApp test execution completed.'
+      });
+    } catch (err: any) {
+      setTestWhatsAppResult({
+        success: false,
+        message: err.message || 'Network error triggering WhatsApp test.'
+      });
+    } finally {
+      setTestingWhatsApp(false);
     }
   };
 
@@ -1483,7 +1532,146 @@ export default function AdminPage() {
             )}
           </div>
 
-          {/* Section 3: Studio Owner Access Password */}
+          {/* Section 3: Meta WhatsApp Cloud API Integration */}
+          <div className="bg-[#121212] border border-white/10 p-6 rounded-sm space-y-5">
+            <div className="border-b border-white/10 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h3 className="text-sm font-semibold text-white uppercase tracking-wider flex items-center gap-2">
+                  <MessageCircle size={16} className="text-emerald-400" />
+                  <span>Meta WhatsApp Cloud API (Automated Notifications)</span>
+                </h3>
+                <p className="text-xs text-white/50 mt-0.5">
+                  Direct official integration with Meta (Facebook) Cloud API to automatically send WhatsApp alerts for new enquiries and booking retainers.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className={`w-2 h-2 rounded-full ${secretsData?.whatsapp?.isConfigured ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+                <span className={`text-[10px] uppercase font-mono px-2 py-0.5 border ${
+                  secretsData?.whatsapp?.isConfigured
+                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                    : 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+                }`}>
+                  {secretsData?.whatsapp?.isConfigured ? 'Meta API Connected' : 'Credentials Needed'}
+                </span>
+              </div>
+            </div>
+
+            {/* Quick Meta Setup Instructions */}
+            <div className="p-3.5 bg-white/5 border border-white/10 rounded text-xs space-y-2">
+              <div className="text-white font-medium flex items-center gap-1.5">
+                <Key size={13} className="text-emerald-400" />
+                <span>How to get your Meta WhatsApp credentials in 3 minutes:</span>
+              </div>
+              <ol className="list-decimal list-inside text-white/60 space-y-1 text-[11px] leading-relaxed">
+                <li>Go to <a href="https://developers.facebook.com/apps" target="_blank" rel="noopener noreferrer" className="text-emerald-400 underline">developers.facebook.com</a> and create a <strong>Business</strong> App.</li>
+                <li>Add the <strong>WhatsApp</strong> product to your app.</li>
+                <li>Go to <strong>WhatsApp &gt; API Setup</strong> to copy your <strong>Phone Number ID</strong> and <strong>Access Token</strong>.</li>
+              </ol>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Meta WhatsApp Token */}
+              <div className="md:col-span-2">
+                <label className="block text-xs font-mono uppercase text-white/70 mb-1.5 flex items-center justify-between">
+                  <span>Meta Access Token (Temporary or Permanent System User Token) *</span>
+                  {secretsData?.whatsapp?.hasToken && (
+                    <span className="text-[10px] text-emerald-400 font-mono">
+                      (Configured: {secretsData.whatsapp.tokenMasked})
+                    </span>
+                  )}
+                </label>
+                <div className="relative">
+                  <input
+                    type={showMetaTokenInput ? 'text' : 'password'}
+                    value={formMetaWhatsappToken}
+                    onChange={(e) => setFormMetaWhatsappToken(e.target.value)}
+                    placeholder={
+                      secretsData?.whatsapp?.hasToken
+                        ? 'Leave empty to keep existing token, or paste new token'
+                        : 'EAA...'
+                    }
+                    className="w-full bg-black/60 border border-white/15 px-3 py-2 pr-10 text-xs text-white placeholder-white/30 focus:outline-none focus:border-emerald-500 font-mono"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowMetaTokenInput(!showMetaTokenInput)}
+                    className="absolute right-2.5 top-2.5 text-white/40 hover:text-white"
+                  >
+                    {showMetaTokenInput ? <EyeOff size={14} /> : <Eye size={14} />}
+                  </button>
+                </div>
+                <p className="text-[11px] text-white/40 mt-1">
+                  Obtained from Meta App &gt; WhatsApp &gt; API Setup (or System Users in Business Settings for permanent token).
+                </p>
+              </div>
+
+              {/* Phone Number ID */}
+              <div>
+                <label className="block text-xs font-mono uppercase text-white/70 mb-1.5">
+                  Phone Number ID (Meta) *
+                </label>
+                <input
+                  type="text"
+                  value={formMetaWhatsappPhoneId}
+                  onChange={(e) => setFormMetaWhatsappPhoneId(e.target.value.trim())}
+                  placeholder="e.g. 105934892471029"
+                  className="w-full bg-black/60 border border-white/15 px-3 py-2 text-xs text-white placeholder-white/30 focus:outline-none focus:border-emerald-500 font-mono"
+                />
+                <p className="text-[11px] text-white/40 mt-1">
+                  The numerical Phone number ID under "API Setup" in Meta Developer Console.
+                </p>
+              </div>
+
+              {/* Admin WhatsApp Recipient */}
+              <div>
+                <label className="block text-xs font-mono uppercase text-white/70 mb-1.5">
+                  Admin WhatsApp Alert Number
+                </label>
+                <input
+                  type="text"
+                  value={formMetaWhatsappAdminPhone}
+                  onChange={(e) => setFormMetaWhatsappAdminPhone(e.target.value.trim())}
+                  placeholder="918827474622"
+                  className="w-full bg-black/60 border border-white/15 px-3 py-2 text-xs text-white placeholder-white/30 focus:outline-none focus:border-emerald-500 font-mono"
+                />
+                <p className="text-[11px] text-white/40 mt-1">
+                  Country code + 10 digits (e.g. 918827474622 for +91 8827474622).
+                </p>
+              </div>
+            </div>
+
+            {/* Test WhatsApp Button Bar */}
+            <div className="pt-3 border-t border-white/5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="text-[11px] text-white/50">
+                Clicking test will send an immediate sample notification to <strong>+{formMetaWhatsappAdminPhone}</strong> via Meta Cloud API.
+              </div>
+
+              <button
+                type="button"
+                onClick={handleTestWhatsApp}
+                disabled={testingWhatsApp || (!secretsData?.whatsapp?.hasToken && !formMetaWhatsappToken)}
+                className="px-3.5 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 disabled:opacity-40 text-emerald-300 text-xs border border-emerald-500/30 rounded transition-all cursor-pointer inline-flex items-center gap-1.5 shrink-0"
+              >
+                <MessageCircle size={13} className={testingWhatsApp ? 'animate-pulse' : ''} />
+                <span>{testingWhatsApp ? 'Dispatching via Meta...' : 'Send Test WhatsApp Alert'}</span>
+              </button>
+            </div>
+
+            {testWhatsAppResult && (
+              <div
+                className={`p-3 text-xs rounded flex items-center gap-2 ${
+                  testWhatsAppResult.success
+                    ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-300'
+                    : 'bg-red-500/10 border border-red-500/30 text-red-300'
+                }`}
+              >
+                {testWhatsAppResult.success ? <CheckCircle size={14} /> : <ShieldAlert size={14} />}
+                <span>{testWhatsAppResult.message}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Section 4: Studio Owner Access Password */}
           <div className="bg-[#121212] border border-white/10 p-6 rounded-sm space-y-4">
             <div className="border-b border-white/10 pb-3 flex items-center justify-between">
               <div>

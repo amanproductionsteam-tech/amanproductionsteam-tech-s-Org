@@ -1,6 +1,6 @@
 import dotenv from 'dotenv';
 dotenv.config({ override: true });
-import { initSecrets, saveSecrets, getMaskedSecrets } from './server/secretsStore.js';
+import { initSecrets, saveSecrets, getMaskedSecrets } from './server/secretsStore.ts';
 // Initialize any stored secrets into process.env
 initSecrets();
 import http from 'http';
@@ -10,13 +10,13 @@ import { randomBytes, timingSafeEqual, createHmac } from 'crypto';
 import type { Request, Response, NextFunction } from 'express';
 import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
-import { INITIAL_CLIENT_GALLERIES, type ClientGallery } from './src/data/clientGalleries.js';
+import { INITIAL_CLIENT_GALLERIES, type ClientGallery } from './src/data/clientGalleries.ts';
 import {
   sendEnquiryEmail,
   sendBookingNotificationEmail,
   isEmailConfigured,
   type EmailSendResult
-} from './server/email.js';
+} from './server/email.ts';
 import {
   getAllEnquiries,
   saveEnquiry,
@@ -25,7 +25,7 @@ import {
   checkRateLimit,
   isDuplicateSubmission,
   type PersistentEnquiry,
-} from './server/enquiryStore.js';
+} from './server/enquiryStore.ts';
 import {
   getAllBookings,
   getBookingByOrderId,
@@ -35,14 +35,20 @@ import {
   rejectManualBooking,
   deleteBooking,
   type PersistentBooking,
-} from './server/bookingStore.js';
+} from './server/bookingStore.ts';
+import {
+  sendWhatsAppMessage,
+  sendEnquiryWhatsAppAlert,
+  sendBookingWhatsAppAlert,
+  isWhatsAppConfigured
+} from './server/whatsapp.ts';
 
 // In-memory persistent store for Client Galleries (shared with Google Drive links)
 const clientGalleriesStore: ClientGallery[] = [...INITIAL_CLIENT_GALLERIES];
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT) || 3000;
 
   // Capture rawBody for signature verification on webhooks
   app.use(express.json({
@@ -127,7 +133,10 @@ async function startServer() {
         senderEmail,
         destinationEmail,
         adminPassword,
-        resendApiKey
+        resendApiKey,
+        metaWhatsappToken,
+        metaWhatsappPhoneId,
+        metaWhatsappAdminPhone
       } = req.body || {};
 
       const updates: any = {};
@@ -158,6 +167,15 @@ async function startServer() {
       if (typeof resendApiKey === 'string' && resendApiKey.trim()) {
         updates.RESEND_API_KEY = resendApiKey.trim();
       }
+      if (typeof metaWhatsappToken === 'string' && metaWhatsappToken.trim()) {
+        updates.META_WHATSAPP_TOKEN = metaWhatsappToken.trim();
+      }
+      if (typeof metaWhatsappPhoneId === 'string' && metaWhatsappPhoneId.trim()) {
+        updates.META_WHATSAPP_PHONE_NUMBER_ID = metaWhatsappPhoneId.trim();
+      }
+      if (typeof metaWhatsappAdminPhone === 'string' && metaWhatsappAdminPhone.trim()) {
+        updates.META_WHATSAPP_ADMIN_PHONE = metaWhatsappAdminPhone.trim();
+      }
 
       saveSecrets(updates);
 
@@ -169,6 +187,39 @@ async function startServer() {
     } catch (err: any) {
       console.error('Failed to save secrets:', err);
       return res.status(500).json({ success: false, error: err.message || 'Failed to save secrets' });
+    }
+  });
+
+  // Test Meta WhatsApp Cloud API Notification
+  app.post('/api/admin/test-whatsapp', requireOwner, async (req, res) => {
+    try {
+      if (!isWhatsAppConfigured()) {
+        return res.status(400).json({
+          success: false,
+          error: 'Meta WhatsApp Cloud API is not configured yet. Please enter your Meta Token and Phone Number ID.'
+        });
+      }
+
+      const { targetPhone, message } = req.body || {};
+      const recipient = targetPhone || process.env.META_WHATSAPP_ADMIN_PHONE || '918827474622';
+      const testMsg = message || '📸 *Aman Visual Studio*: Test alert via Meta WhatsApp Cloud API! If you received this, your Meta Cloud API connection is active and verified.';
+
+      const result = await sendWhatsAppMessage(recipient, testMsg);
+      if (result.success) {
+        return res.json({
+          success: true,
+          message: `Meta WhatsApp test message sent successfully to ${recipient} (Message ID: ${result.messageId})!`,
+          details: result.details
+        });
+      } else {
+        return res.status(400).json({
+          success: false,
+          error: result.error || 'Failed to send WhatsApp message via Meta Cloud API.',
+          details: result.details
+        });
+      }
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err.message || 'Error executing WhatsApp test' });
     }
   });
 
@@ -360,6 +411,18 @@ async function startServer() {
       // Always save into persistent database on disk so no enquiry is lost
       saveEnquiry(newEnquiry);
       console.log(`[Enquiry Processed] ID: ${newEnquiry.id} | Configured: ${emailConfigured} | EmailSent: ${emailResult.success} | Client: ${newEnquiry.name}`);
+
+      // Dispatch automated WhatsApp notification via Meta Cloud API (if configured)
+      if (isWhatsAppConfigured()) {
+        sendEnquiryWhatsAppAlert({
+          name: newEnquiry.name,
+          email: newEnquiry.email,
+          phone: newEnquiry.phone,
+          service: newEnquiry.service,
+          shootDate: newEnquiry.shootDate,
+          message: newEnquiry.message,
+        }).catch(err => console.error('[Meta WhatsApp Alert Exception]:', err));
+      }
 
       // If email credentials are not configured on server
       if (!emailConfigured) {
@@ -619,6 +682,22 @@ async function startServer() {
         paymentMode: 'Direct UPI / QR Transfer',
         receiptNumber: newBooking.receiptNumber
       }).catch(err => console.error('[Pending UPI Email Error]', err));
+
+      // Automated WhatsApp notification to Studio Admin
+      if (isWhatsAppConfigured()) {
+        sendBookingWhatsAppAlert({
+          id: newBooking.orderId,
+          customerName: newBooking.customerName,
+          customerPhone: newBooking.customerPhone,
+          customerEmail: newBooking.customerEmail,
+          serviceTitle: newBooking.serviceTitle,
+          advanceAmount: newBooking.amount,
+          totalEstimate: newBooking.amount * 2,
+          bankReference: cleanUtr,
+          eventDate: newBooking.eventDate,
+          eventVenue: newBooking.eventVenue,
+        }).catch(err => console.error('[Meta WhatsApp Booking Alert Exception]:', err));
+      }
 
       return res.status(201).json({
         success: true,
